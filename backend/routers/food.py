@@ -10,15 +10,9 @@ from typing import Optional
 from services.gemini_service import gemini_service
 from services.mongodb_service import mongodb_service
 from models.food_log import FoodLogInput, FoodLogResponse, FoodItemBreakdown
+from .person_b_placeholders import verify_token
 
 router = APIRouter(prefix="/api/food", tags=["food"])
-
-# Placeholder for auth dependency
-def get_current_user(authorization: str = None) -> str:
-    """Placeholder for Firebase auth verification"""
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    return "user_id_placeholder"
 
 class FoodLogRequest(BaseModel):
     """Request to log food"""
@@ -29,18 +23,10 @@ class FoodLogRequest(BaseModel):
 @router.post("/log", response_model=dict)
 async def log_food(
     request: FoodLogRequest,
-    user_id: str = Depends(get_current_user)
+    user_id: str = Depends(verify_token)
 ):
     """
     A5 - Log food intake with natural language input
-    
-    Example: "2 rotis, dal, sabzi with ghee, half plate"
-    Response: Breaks down items with calories and macros
-    
-    1. Accept natural language food description
-    2. Parse with Gemini API
-    3. Return structured breakdown
-    4. Save to Firestore (Person B will implement)
     """
     try:
         if not request.meal_description or len(request.meal_description.strip()) < 2:
@@ -94,7 +80,7 @@ async def log_food(
         raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
 
 @router.get("/today")
-async def get_today_food(user_id: str = Depends(get_current_user)):
+async def get_today_food(user_id: str = Depends(verify_token)):
     """
     Get today's complete food log (breakfast, lunch, dinner)
     Retrieves from MongoDB
@@ -123,7 +109,7 @@ async def get_today_food(user_id: str = Depends(get_current_user)):
 @router.get("/history/{num_days}")
 async def get_food_history(
     num_days: int = 7,
-    user_id: str = Depends(get_current_user)
+    user_id: str = Depends(verify_token)
 ):
     """
     Get food logs for past N days
@@ -155,10 +141,10 @@ async def get_food_history(
         raise HTTPException(status_code=500, detail=f"Failed to fetch history: {str(e)}")
 
 @router.post("/estimate")
-async def estimate_calories(request: FoodLogRequest):
+async def estimate_calories_route(request: FoodLogRequest):
     """
     Estimate calories for food without logging
-    Just analyze, don't save
+    Just analyze, don't save. Renamed to avoid conflicts.
     """
     try:
         if not request.meal_description or len(request.meal_description.strip()) < 2:
@@ -179,36 +165,3 @@ async def estimate_calories(request: FoodLogRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Estimation failed: {str(e)}")
-
-@router.get("/history/{num_days}")
-async def get_food_history(
-    num_days: int = 7,
-    user_id: str = Depends(get_current_user)
-):
-    """
-    Get food logs for the last N days
-    """
-    if num_days > 30:
-        raise HTTPException(status_code=400, detail="Max 30 days at a time")
-    
-    return {
-        "num_days": num_days,
-        "logs": [],
-        "message": "Firestore integration pending - Person B task"
-    }
-
-@router.post("/estimate")
-async def estimate_calories(request: FoodLogRequest):
-    """
-    Quick calorie estimation without saving
-    Useful for quick checks
-    """
-    try:
-        parsed = gemini_service.parse_food_input(request.meal_description)
-        return {
-            "meal_description": request.meal_description,
-            "estimated_calories": parsed.get("total_calories", 0),
-            "items": parsed.get("items", [])
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))

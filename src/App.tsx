@@ -59,18 +59,24 @@ function AppRoutes() {
   );
 }
 
+function AppContent() {
+  const { isAuthenticated } = useAuth();
+
+  return (
+    <div className="min-h-screen bg-health-lightest text-health-dark">
+      <AppRoutes />
+
+      {/* Floating Chatbot - only show for authenticated users */}
+      {isAuthenticated && <ChatBot />}
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <Router>
-        <div className="min-h-screen bg-health-lightest text-health-dark">
-          <AppRoutes />
-
-          {/* Floating Chatbot - only show for authenticated users */}
-          <ProtectedRoute>
-            <ChatBot />
-          </ProtectedRoute>
-        </div>
+        <AppContent />
       </Router>
     </AuthProvider>
   );
