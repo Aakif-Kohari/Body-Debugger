@@ -13,6 +13,7 @@ import uuid
 from services.ocr_service import ocr_service
 from services.gemini_service import gemini_service
 from services.storage_service import storage_service
+from services.mongodb_service import mongodb_service
 from models.report import (
     LabReportUploadResponse,
     LabReportAnalysis,
@@ -97,8 +98,20 @@ async def upload_lab_report(
             print(f"Warning: File upload failed: {str(e)}")
             file_url = None
         
-        # Step 4: Save analysis to Firestore (Person B will implement this)
-        # For now, return the analysis
+        # Step 4: Save analysis to MongoDB
+        try:
+            await mongodb_service.save_lab_report(
+                uid=user_id,
+                report_data={
+                    "report_id": report_id,
+                    "file_url": file_url,
+                    "analysis": analysis_data
+                }
+            )
+            print(f"[A4] Report metadata saved to MongoDB")
+        except Exception as e:
+            print(f"[A4] Warning: MongoDB save failed: {str(e)}")
+        
         print(f"[A4] Report analysis complete. ID: {report_id}")
         
         # Build response
@@ -123,23 +136,43 @@ async def upload_lab_report(
 async def list_reports(user_id: str = Depends(get_current_user)):
     """
     List all reports for the current user
-    (Person B will implement Firestore query)
+    Retrieves from MongoDB
     """
-    return {
-        "reports": [],
-        "message": "Firestore integration pending - Person B task"
-    }
+    try:
+        reports = await mongodb_service.get_lab_reports(user_id)
+        
+        return {
+            "reports": reports,
+            "total": len(reports),
+            "status": "success"
+        }
+    except Exception as e:
+        print(f"[A4] Error fetching reports: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch reports: {str(e)}")
 
 @router.get("/{report_id}")
 async def get_report(report_id: str, user_id: str = Depends(get_current_user)):
     """
     Get a specific report's analysis
-    (Person B will implement Firestore query)
+    Retrieves from MongoDB
     """
-    return {
-        "report_id": report_id,
-        "message": "Firestore integration pending - Person B task"
-    }
+    try:
+        # Get all reports for user and find the matching one
+        reports = await mongodb_service.get_lab_reports(user_id)
+        report = next((r for r in reports if r.get("report_id") == report_id), None)
+        
+        if not report:
+            raise HTTPException(status_code=404, detail="Report not found")
+        
+        return {
+            "report": report,
+            "status": "success"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[A4] Error fetching report: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch report: {str(e)}")
 
 # ========== A8: HEALTH RECORDS VAULT ==========
 
@@ -181,7 +214,20 @@ async def upload_health_record(
         )
         file_url = storage_service.get_public_url(storage_path)
         
-        # Save metadata to Firestore (Person B will implement)
+        # Save metadata to MongoDB
+        try:
+            await mongodb_service.save_health_record(
+                uid=user_id,
+                record_data={
+                    "record_type": record_type,
+                    "label": label,
+                    "file_url": file_url
+                }
+            )
+            print(f"[A8] Health record saved to MongoDB")
+        except Exception as e:
+            print(f"[A8] Warning: MongoDB save failed: {str(e)}")
+        
         response = {
             "record_id": record_id,
             "type": record_type,
@@ -202,17 +248,26 @@ async def upload_health_record(
 async def list_health_records(user_id: str = Depends(get_current_user)):
     """
     List all health records for the user
+    Retrieves from MongoDB
     """
-    return {
-        "records": [],
-        "message": "Firestore integration pending - Person B task"
-    }
+    try:
+        records = await mongodb_service.get_health_records(user_id)
+        
+        return {
+            "records": records,
+            "total": len(records),
+            "status": "success"
+        }
+    except Exception as e:
+        print(f"[A8] Error fetching records: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch records: {str(e)}")
 
 @router.delete("/records/{record_id}")
 async def delete_health_record(record_id: str, user_id: str = Depends(get_current_user)):
     """
     Delete a health record
+    Note: File deletion from Firebase Storage should be handled by Person B
     """
     return {
-        "message": "Firestore integration pending - Person B task"
+        "message": "Delete functionality pending - Person B to implement file cleanup"
     }

@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict
 
 from services.gemini_service import gemini_service
+from services.mongodb_service import mongodb_service
 from models.chat import ChatbotRequest, ChatbotResponse
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -52,17 +53,40 @@ async def analyze_symptom(
         
         print(f"[A6] Analyzing symptom: {symptom}")
         
-        # TODO: Fetch user's recent health logs from Firestore (Person B will implement)
-        # For now, we'll call Gemini with just the symptom
-        # In production:
-        # context = get_user_health_context(user_id)  # Person B's task
-        
-        context_data = {
-            "sleep_hours": None,
-            "water_intake_ml": None,
-            "recent_food": None,
-            "last_blood_report_values": None
-        }
+        # Fetch user's recent health logs from MongoDB
+        try:
+            recent_food = await mongodb_service.get_food_history(user_id, num_days=1)
+            recent_sleep = await mongodb_service.get_sleep_logs(user_id, num_days=1)
+            recent_reports = await mongodb_service.get_lab_reports(user_id)
+            
+            # Extract context data
+            food_items = []
+            if recent_food:
+                for log in recent_food:
+                    food_items.extend(log.get("items", []))
+            
+            sleep_hours = None
+            if recent_sleep:
+                sleep_hours = recent_sleep[0].get("duration_hours")
+            
+            report_values = None
+            if recent_reports:
+                report_values = recent_reports[0].get("analysis")
+            
+            context_data = {
+                "sleep_hours": sleep_hours,
+                "water_intake_ml": None,  # Placeholder for Person B
+                "recent_food": food_items,
+                "last_blood_report_values": report_values
+            }
+        except Exception as e:
+            print(f"[A6] Warning: Could not fetch context from MongoDB: {str(e)}")
+            context_data = {
+                "sleep_hours": None,
+                "water_intake_ml": None,
+                "recent_food": None,
+                "last_blood_report_values": None
+            }
         
         try:
             # Call Gemini with symptom analysis
@@ -89,6 +113,20 @@ async def analyze_symptom(
             },
             "status": "success"
         }
+        
+        # Save chat message to MongoDB
+        try:
+            await mongodb_service.save_chat_message(
+                uid=user_id,
+                message_data={
+                    "symptom": symptom,
+                    "response": result.get("message"),
+                    "context": context_data
+                }
+            )
+            print(f"[A6] Chat message saved to MongoDB")
+        except Exception as e:
+            print(f"[A6] Warning: MongoDB save failed: {str(e)}")
         
         print(f"[A6] Symptom analysis complete")
         
@@ -142,10 +180,20 @@ async def get_chat_history(
 ):
     """
     Get user's chat history
-    Person B will implement Firestore query
+    Retrieves from MongoDB
     """
-    return {
-        "messages": [],
-        "limit": limit,
-        "message": "Firestore integration pending - Person B task"
-    }
+    try:
+        if limit < 1 or limit > 100:
+            limit = 20
+        
+        messages = await mongodb_service.get_chat_history(user_id, limit)
+        
+        return {
+            "messages": messages,
+            "limit": limit,
+            "total": len(messages),
+            "status": "success"
+        }
+    except Exception as e:
+        print(f"[A6] Error fetching chat history: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch history: {str(e)}")

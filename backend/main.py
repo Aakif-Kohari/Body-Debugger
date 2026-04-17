@@ -20,6 +20,9 @@ try:
 except Exception as e:
     print(f"⚠ Firebase initialization warning: {e}")
 
+# Import MongoDB service
+from services.mongodb_service import mongodb_service
+
 # Import routers
 from routers import reports, food, chat
 from routers.person_b_placeholders import (
@@ -116,8 +119,17 @@ async def startup_event():
     print("=" * 50)
     print("🚀 Body Debugger API Starting...")
     print("=" * 50)
+    
+    # Connect to MongoDB
+    try:
+        await mongodb_service.connect()
+    except Exception as e:
+        print(f"⚠ MongoDB connection failed: {e}")
+        print("Continuing without database...")
+    
     print("✓ FastAPI configured")
     print("✓ CORS enabled for development")
+    print("✓ MongoDB connected")
     print("✓ Person A endpoints ready:")
     print("  - POST /api/reports/upload (Lab Report Translator)")
     print("  - POST /api/food/log (Food Calorie Parser)")
@@ -130,6 +142,7 @@ async def startup_event():
 async def shutdown_event():
     """Run on app shutdown"""
     print("🛑 Body Debugger API shutting down...")
+    await mongodb_service.disconnect()
 
 # ========== DEVELOPMENT SERVER ==========
 if __name__ == "__main__":
