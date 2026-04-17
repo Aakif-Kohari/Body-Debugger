@@ -41,19 +41,21 @@ class MongoDBService:
             print("✓ MongoDB disconnected")
     
     # ========== USER OPERATIONS ==========
-    async def create_user(self, uid: str, profile_data: dict):
+    async def create_user(self, user_data: dict):
         """Create new user profile"""
         try:
             user_doc = {
-                "_id": uid,
-                "name": profile_data.get("name"),
-                "age": profile_data.get("age"),
-                "health_goals": profile_data.get("health_goals", []),
+                "_id": f"user_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{user_data['email'][:5]}",
+                "email": user_data["email"],
+                "password_hash": user_data["password_hash"],
+                "name": user_data["name"],
+                "age": user_data.get("age"),
+                "health_goals": user_data.get("health_goals", []),
                 "created_at": datetime.now().isoformat(),
                 "updated_at": datetime.now().isoformat()
             }
             result = await self.db.users.insert_one(user_doc)
-            return str(result.inserted_id)
+            return user_doc["_id"]
         except Exception as e:
             print(f"Error creating user: {e}")
             raise
@@ -65,6 +67,28 @@ class MongoDBService:
             return user
         except Exception as e:
             print(f"Error getting user: {e}")
+            raise
+    
+    async def get_user_by_email(self, email: str):
+        """Get user by email"""
+        try:
+            user = await self.db.users.find_one({"email": email})
+            return user
+        except Exception as e:
+            print(f"Error getting user by email: {e}")
+            raise
+    
+    async def update_user(self, uid: str, update_data: dict):
+        """Update user profile"""
+        try:
+            update_data["updated_at"] = datetime.now().isoformat()
+            result = await self.db.users.update_one(
+                {"_id": uid},
+                {"$set": update_data}
+            )
+            return result.modified_count > 0
+        except Exception as e:
+            print(f"Error updating user: {e}")
             raise
     
     # ========== FOOD LOG OPERATIONS ==========
@@ -169,21 +193,51 @@ class MongoDBService:
             print(f"Error getting sleep logs: {e}")
             raise
     
-    # ========== HEALTH RECORDS OPERATIONS ==========
-    async def save_health_record(self, uid: str, record_data: dict):
-        """Save health record metadata"""
+    # ========== WATER LOG OPERATIONS ==========
+    async def save_water_log(self, uid: str, water_data: dict):
+        """Save water log"""
         try:
-            record = {
+            log = {
                 "user_id": uid,
-                "record_type": record_data.get("record_type"),
-                "label": record_data.get("label"),
-                "file_url": record_data.get("file_url"),  # Firebase Storage URL
-                "created_at": datetime.now().isoformat()
+                "amount_ml": water_data.get("amount_ml", 250),
+                "timestamp": datetime.now().isoformat()
             }
-            result = await self.db.health_records.insert_one(record)
+            result = await self.db.water_logs.insert_one(log)
             return str(result.inserted_id)
         except Exception as e:
-            print(f"Error saving health record: {e}")
+            print(f"Error saving water log: {e}")
+            raise
+    
+    async def get_water_logs_today(self, uid: str):
+        """Get today's water logs"""
+        try:
+            today = datetime.now().strftime("%Y-%m-%d")
+            logs = await self.db.water_logs.find({
+                "user_id": uid,
+                "timestamp": {"$regex": f"^{today}"}
+            }).to_list(length=None)
+            return logs
+        except Exception as e:
+            print(f"Error getting water logs: {e}")
+            raise
+    
+    # ========== FCM TOKEN OPERATIONS ==========
+    async def save_fcm_token(self, uid: str, token: str):
+        """Save FCM token for push notifications"""
+        try:
+            result = await self.db.fcm_tokens.update_one(
+                {"user_id": uid},
+                {
+                    "$set": {
+                        "token": token,
+                        "updated_at": datetime.now().isoformat()
+                    }
+                },
+                upsert=True
+            )
+            return result.modified_count > 0 or result.upserted_id is not None
+        except Exception as e:
+            print(f"Error saving FCM token: {e}")
             raise
     
     async def get_health_records(self, uid: str):

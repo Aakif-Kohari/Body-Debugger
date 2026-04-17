@@ -1,16 +1,23 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageCircle, X, Send, Sparkles, Loader2, Activity } from 'lucide-react';
-import { geminiService } from '../services/gemini';
+import { apiService } from '../services/api';
 import { cn } from '../lib/utils';
+
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  text: string;
+  timestamp?: string;
+}
 
 export default function ChatBot() {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([
+  const [messages, setMessages] = useState<ChatMessage[]>([
     { role: 'assistant', text: "Namaste! I'm your Body Debugger AI. Feeling off today? Maybe I can help you find out why. Or just upload your last blood report!" }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -19,26 +26,70 @@ export default function ChatBot() {
     }
   }, [messages]);
 
+  useEffect(() => {
+    if (isOpen) {
+      loadChatHistory();
+    }
+  }, [isOpen]);
+
+  const loadChatHistory = async () => {
+    try {
+      const history = await apiService.getChatHistory(10);
+      if (history.messages && history.messages.length > 0) {
+        // Add history messages, but keep the initial greeting
+        const historyMessages = history.messages.map((msg: any) => ({
+          role: msg.role,
+          text: msg.content,
+          timestamp: msg.timestamp
+        }));
+        setMessages(prev => [prev[0], ...historyMessages]);
+      }
+    } catch (err) {
+      console.error('Failed to load chat history:', err);
+      // Don't show error for history loading, just continue with initial message
+    }
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
-    const userMsg = { role: 'user', text: input };
+    const userMsg: ChatMessage = { role: 'user', text: input };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsLoading(true);
+    setError(null);
 
     try {
-      const context = {
-        hydration: "6/8 glasses",
-        sleep: "7.2 hours",
-        recentLab: "Vitamin D low (12 ng/mL)"
+      // Try symptom analysis first
+      const symptomResponse = await apiService.sendSymptomMessage(input);
+
+      if (symptomResponse.analysis) {
+        // If it's a symptom analysis response
+        const assistantMsg: ChatMessage = {
+          role: 'assistant',
+          text: symptomResponse.analysis,
+          timestamp: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, assistantMsg]);
+      } else {
+        // Fallback to quick check
+        const quickResponse = await apiService.sendQuickCheck(input);
+        const assistantMsg: ChatMessage = {
+          role: 'assistant',
+          text: quickResponse.response || "I'm here to help with your health questions!",
+          timestamp: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, assistantMsg]);
+      }
+    } catch (err) {
+      console.error("Chat failed", err);
+      setError("Sorry, my brain is feeling a bit bugged. Let's try that again?");
+      const errorMsg: ChatMessage = {
+        role: 'assistant',
+        text: "Sorry, my brain is feeling a bit bugged. Let's try that again?",
+        timestamp: new Date().toISOString()
       };
-      
-      const response = await geminiService.chatWithContext(input, context);
-      setMessages(prev => [...prev, { role: 'assistant', text: response }]);
-    } catch (error) {
-      console.error("Chat failed", error);
-      setMessages(prev => [...prev, { role: 'assistant', text: "Sorry, my brain is feeling a bit bugged. Let's try that again?" }]);
+      setMessages(prev => [...prev, errorMsg]);
     } finally {
       setIsLoading(false);
     }
@@ -79,8 +130,8 @@ export default function ChatBot() {
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={cn(
                     "max-w-[85%] p-4 rounded-3xl text-sm leading-relaxed",
-                    msg.role === 'user' 
-                      ? "bg-primary-teal text-bg-dark rounded-tr-none font-bold shadow-lg shadow-primary-teal/10" 
+                    msg.role === 'user'
+                      ? "bg-primary-teal text-bg-dark rounded-tr-none font-bold shadow-lg shadow-primary-teal/10"
                       : "bg-white/5 text-text-main rounded-tl-none border border-white/10"
                   )}>
                     {msg.text}
@@ -89,8 +140,15 @@ export default function ChatBot() {
               ))}
               {isLoading && (
                 <div className="flex justify-start">
-                  <div className="bg-white/5 p-4 rounded-3xl rounded-tl-none border border-white/10 animate-pulse">
+                  <div className="bg-white/5 p-4 rounded-3xl rounded-tl-none border border-white/10">
                     <Loader2 size={16} className="animate-spin text-primary-teal" />
+                  </div>
+                </div>
+              )}
+              {error && (
+                <div className="flex justify-start">
+                  <div className="bg-red-400/10 p-4 rounded-3xl rounded-tl-none border border-red-400/20">
+                    <p className="text-red-400 text-sm">{error}</p>
                   </div>
                 </div>
               )}

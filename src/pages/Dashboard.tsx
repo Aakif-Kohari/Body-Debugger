@@ -1,17 +1,62 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import Layout from '../components/Layout';
-import { Droplets, Flame, Moon, Smartphone, TrendingUp, ChevronRight, Plus } from 'lucide-react';
+import { Droplets, Flame, Moon, Smartphone, TrendingUp, ChevronRight, Plus, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { storageService } from '../services/storage';
-import { DailyStats } from '../types';
+import { apiService } from '../services/api';
+
+interface DashboardStats {
+  water: number;
+  sleep: number;
+  calories: number;
+  screenTime: number;
+}
 
 export default function Dashboard() {
-  const [stats, setStats] = useState<DailyStats>(storageService.getStats());
+  const [stats, setStats] = useState<DashboardStats>({
+    water: 0,
+    sleep: 0,
+    calories: 0,
+    screenTime: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setStats(storageService.getStats());
+    loadDashboardData();
   }, []);
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Load data from multiple endpoints
+      const [foodData, waterData, sleepData] = await Promise.all([
+        apiService.getTodayFood(),
+        apiService.getTodayWater(),
+        apiService.getSleepHistory(1)
+      ]);
+
+      // Calculate stats from API data
+      const calories = foodData.logs?.reduce((sum: number, log: any) => sum + log.total_calories, 0) || 0;
+      const water = waterData.total_glasses || 0;
+      const sleep = sleepData.logs?.[0]?.duration_hours || 0;
+      const screenTime = 0; // This would need to be tracked separately
+
+      setStats({
+        water,
+        sleep,
+        calories,
+        screenTime
+      });
+    } catch (err) {
+      console.error('Failed to load dashboard data:', err);
+      setError('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const uiStats = [
     { label: "Hydration", value: stats.water.toString(), unit: "glasses", icon: <Droplets />, color: "text-blue-400", bg: "bg-blue-400/10", progress: (stats.water / 8) * 100 },
@@ -20,10 +65,29 @@ export default function Dashboard() {
     { label: "Screen", value: stats.screenTime.toString(), unit: "hours", icon: <Smartphone />, color: "text-purple-400", bg: "bg-purple-400/10", progress: (stats.screenTime / 6) * 100 },
   ];
 
-  const handleQuickAddWater = () => {
-    storageService.addLog({ userId: 'demo', type: 'water', value: 1 });
-    setStats(storageService.getStats());
+  const handleQuickAddWater = async () => {
+    try {
+      setError(null);
+      await apiService.logWater(250); // 250ml glass
+      await loadDashboardData(); // Refresh data
+    } catch (err) {
+      console.error('Failed to log water:', err);
+      setError('Failed to log water');
+    }
   };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="p-6 flex items-center justify-center min-h-[400px]">
+          <div className="flex items-center gap-3 text-health-primary">
+            <Loader2 size={24} className="animate-spin" />
+            <span>Loading your health data...</span>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -130,6 +194,17 @@ export default function Dashboard() {
             </motion.div>
           ))}
         </div>
+
+        {/* Error Display */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="glass rounded-[2.5rem] p-6 border-red-400/20 bg-red-400/5"
+          >
+            <p className="text-red-400 font-bold">{error}</p>
+          </motion.div>
+        )}
       </div>
     </Layout>
   );
