@@ -1,0 +1,6 @@
+{
+  "name": "Body Debugger",
+  "description": "A unified personal health operating system for modern students and professionals. Features an AI-powered Lab Report Translator, habit tracking, and personal health insights.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": []
+}

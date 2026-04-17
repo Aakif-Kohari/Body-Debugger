@@ -1,0 +1,60 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+@theme {
+  --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  
+  --color-bg-dark: #0f172a;
+  --color-primary-teal: #2dd4bf;
+  --color-accent-blue: #3b82f6;
+  --color-text-main: #f8fafc;
+  --color-text-muted: #94a3b8;
+  
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2rem;
+  --radius-3xl: 2.5rem;
+}
+
+@layer base {
+  body {
+    @apply bg-bg-dark text-text-main font-sans min-h-screen relative;
+    background-image: 
+      radial-gradient(circle at 20% 20%, #1e293b 0%, transparent 40%),
+      radial-gradient(circle at 80% 80%, #0f172a 0%, transparent 40%),
+      radial-gradient(circle at 50% 50%, #115e59 0%, transparent 60%);
+    background-attachment: fixed;
+  }
+}
+
+/* Glassmorphism utility - Frosted Glass v2 */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Neumorphism utility - Dark Mode */
+.neu-button {
+  background: #1e293b;
+  box-shadow: 
+    6px 6px 12px rgba(0, 0, 0, 0.5), 
+    -4px -4px 10px rgba(255, 255, 255, 0.03);
+  transition: all 0.2s ease;
+}
+
+.neu-button:active {
+  box-shadow: 
+    inset 4px 4px 8px rgba(0, 0, 0, 0.5), 
+    inset -2px -2px 5px rgba(255, 255, 255, 0.03);
+  transform: scale(0.98);
+}
+
+/* Hide scrollbar */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
