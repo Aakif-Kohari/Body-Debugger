@@ -1,7 +1,7 @@
 class ApiService {
   private baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
-  private async request(endpoint: string, options: RequestInit = {}) {
+  async request(endpoint: string, options: RequestInit = {}) {
     const url = `${this.baseURL}${endpoint}`;
 
     const config: RequestInit = {

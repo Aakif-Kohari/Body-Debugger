@@ -11,6 +11,7 @@ from services.gemini_service import gemini_service
 from services.mongodb_service import mongodb_service
 from models.food_log import FoodLogInput, FoodLogResponse, FoodItemBreakdown
 from routers.auth import get_current_user_id
+from utils.serializer import serialize_docs
 
 router = APIRouter(prefix="/api/food", tags=["food"])
 
@@ -32,8 +33,8 @@ async def log_food(
         if not request.meal_description or len(request.meal_description.strip()) < 2:
             raise HTTPException(status_code=400, detail="Please describe what you ate")
         
-        if request.meal_type not in ["breakfast", "lunch", "dinner"]:
-            raise HTTPException(status_code=400, detail="Invalid meal type. Use breakfast, lunch, or dinner")
+        if request.meal_type not in ["breakfast", "lunch", "dinner", "snack"]:
+            raise HTTPException(status_code=400, detail="Invalid meal type. Use breakfast, lunch, dinner, or snack")
         
         print(f"[A5] Parsing food: {request.meal_description}")
         
@@ -93,12 +94,16 @@ async def get_today_food(user_id: str = Depends(get_current_user_id)):
         today = datetime.now().strftime("%Y-%m-%d")
         logs = await mongodb_service.get_food_logs(user_id, today)
         
-        # Organize by meal type
+        # Organize by meal type — serialize each log to handle ObjectIds
+        def _serialize_logs(logs_list):
+            return serialize_docs(logs_list)
+        
         organized = {
             "date": today,
-            "breakfast": [log for log in logs if log.get("meal_type") == "breakfast"],
-            "lunch": [log for log in logs if log.get("meal_type") == "lunch"],
-            "dinner": [log for log in logs if log.get("meal_type") == "dinner"],
+            "breakfast": _serialize_logs([l for l in logs if l.get("meal_type") == "breakfast"]),
+            "lunch": _serialize_logs([l for l in logs if l.get("meal_type") == "lunch"]),
+            "dinner": _serialize_logs([l for l in logs if l.get("meal_type") == "dinner"]),
+            "snacks": _serialize_logs([l for l in logs if l.get("meal_type") == "snack"]),
             "total_calories": sum(log.get("total_calories", 0) for log in logs),
             "total_protein": sum(log.get("total_protein", 0) for log in logs),
             "total_carbs": sum(log.get("total_carbs", 0) for log in logs),
@@ -125,9 +130,9 @@ async def get_food_history(
         
         logs = await mongodb_service.get_food_history(user_id, num_days)
         
-        # Aggregate by date
+        # Aggregate by date — serialize each log to handle ObjectIds
         by_date = {}
-        for log in logs:
+        for log in serialize_docs(logs):
             date = log.get("date")
             if date not in by_date:
                 by_date[date] = []

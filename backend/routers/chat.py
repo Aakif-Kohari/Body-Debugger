@@ -10,6 +10,7 @@ from services.gemini_service import gemini_service
 from services.mongodb_service import mongodb_service
 from models.chat import ChatbotRequest, ChatbotResponse
 from routers.auth import get_current_user_id
+from utils.serializer import serialize_docs
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -49,27 +50,29 @@ async def analyze_symptom(
         
         # Fetch user's recent health logs from MongoDB
         try:
-            recent_food = await mongodb_service.get_food_history(user_id, num_days=1)
-            recent_sleep = await mongodb_service.get_sleep_logs(user_id, num_days=1)
-            recent_reports = await mongodb_service.get_lab_reports(user_id)
+            raw_food  = await mongodb_service.get_food_history(user_id, num_days=1)
+            raw_sleep = await mongodb_service.get_sleep_logs(user_id, num_days=1)
+            raw_reports = await mongodb_service.get_lab_reports(user_id)
             
-            # Extract context data
+            recent_food    = serialize_docs(raw_food or [])
+            recent_sleep   = serialize_docs(raw_sleep or [])
+            recent_reports = serialize_docs(raw_reports or [])
+            
+            # Extract context data — food items must be strings for Gemini
             food_items = []
-            if recent_food:
-                for log in recent_food:
-                    food_items.extend(log.get("items", []))
+            for log in recent_food:
+                for item in log.get("items", []):
+                    if isinstance(item, dict):
+                        food_items.append(item.get("name", str(item)))
+                    elif isinstance(item, str):
+                        food_items.append(item)
             
-            sleep_hours = None
-            if recent_sleep:
-                sleep_hours = recent_sleep[0].get("duration_hours")
-            
-            report_values = None
-            if recent_reports:
-                report_values = recent_reports[0].get("analysis")
+            sleep_hours = recent_sleep[0].get("duration_hours") if recent_sleep else None
+            report_values = recent_reports[0].get("analysis") if recent_reports else None
             
             context_data = {
                 "sleep_hours": sleep_hours,
-                "water_intake_ml": None,  # Placeholder for Person B
+                "water_intake_ml": None,
                 "recent_food": food_items,
                 "last_blood_report_values": report_values
             }
@@ -98,11 +101,12 @@ async def analyze_symptom(
         # Format response
         response = {
             "symptom": symptom,
+            "response": result.get("message"),         # alias for frontend
             "assistant_message": result.get("message"),
             "context_used": {
                 "has_sleep_data": context_data.get("sleep_hours") is not None,
                 "has_water_data": context_data.get("water_intake_ml") is not None,
-                "has_food_data": context_data.get("recent_food") is not None,
+                "has_food_data": bool(context_data.get("recent_food")),
                 "has_report_data": context_data.get("last_blood_report_values") is not None
             },
             "status": "success"
@@ -139,7 +143,7 @@ async def quick_symptom_check(request: ChatbotRequest):
     Anonymous endpoint for quick Q&A
     """
     try:
-        symptom = request.symptom_or_mood.strip()
+        symptom = (request.symptom or "").strip()
         
         if not symptom:
             raise HTTPException(status_code=400, detail="Please describe your symptom")
@@ -183,7 +187,7 @@ async def get_chat_history(
         messages = await mongodb_service.get_chat_history(user_id, limit)
         
         return {
-            "messages": messages,
+            "messages": serialize_docs(messages),
             "limit": limit,
             "total": len(messages),
             "status": "success"

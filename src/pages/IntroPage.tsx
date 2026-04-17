@@ -1,91 +1,119 @@
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { useNavigate } from 'react-router-dom';
-import { Activity, Beaker, Apple, Moon, Droplets, ArrowRight, Loader2 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { Link, useNavigate } from 'react-router-dom';
+import { Zap, Activity, Heart, Brain, Shield, ArrowRight, Star } from 'lucide-react';
+
+const features = [
+  { icon: Activity, title: "Smart Tracking", desc: "Log food, water, and sleep with AI-powered analysis", color: "#0d9488" },
+  { icon: Brain, title: "AI Health Coach", desc: "Get personalized insights and symptom analysis", color: "#7c3aed" },
+  { icon: Heart, title: "Lab Reports", desc: "Upload and decode your medical test results instantly", color: "#ec4899" },
+  { icon: Shield, title: "Health Vault", desc: "Securely store all your medical documents in one place", color: "#0284c7" },
+];
 
 export default function IntroPage() {
-  const navigate = useNavigate();
+  const [currentFeature, setCurrentFeature] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentFeature(i => (i + 1) % features.length);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
-    <div className="relative min-h-screen overflow-hidden flex flex-col items-center justify-center p-6 bg-bg-main selection:bg-primary-teal/20 transition-colors duration-300">
-      <div className="w-full max-w-lg z-10 flex flex-col gap-14">
-        {/* Hero Section */}
-        <div className="text-left space-y-6">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8 }}
-            className="flex items-center gap-4 mb-6"
-          >
-            <div className="w-4 h-4 bg-primary-teal rounded-full shadow-[0_0_20px_#0d9488]" />
-            <span className="text-sm font-black tracking-[0.3em] uppercase text-primary-teal">Body Debugger OS</span>
-          </motion.div>
-          
-          <motion.h1
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.1 }}
-            className="text-7xl font-black leading-[0.95] tracking-tighter text-text-main"
-          >
-            Your Health,<br />
-            <span className="bg-gradient-to-r from-primary-teal to-accent-blue bg-clip-text text-transparent">Decoded.</span>
-          </motion.h1>
-          
-          <motion.p
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-            className="text-text-muted text-xl font-medium leading-relaxed max-w-sm"
-          >
-            Stop staring at complex lab reports. We translate your bio-data into actionable insights. One seamless health platform for the modern student.
-          </motion.p>
-        </div>
-
-        {/* Feature Grid - Premium Cards */}
-        <div className="grid grid-cols-2 gap-6">
-          {[
-            { icon: <Beaker size={28} />, label: "Bio-Report Analysis", tag: "AI POWERED" },
-            { icon: <Activity size={28} />, label: "Metabolic Tracker", tag: "NEW" },
-          ].map((feature, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, delay: 0.4 + i * 0.1 }}
-              className="premium-card p-8 flex flex-col gap-4 group relative"
-            >
-              {feature.tag && (
-                <div className="absolute -top-3 -right-3 grad-teal px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest shadow-xl">
-                  {feature.tag}
-                </div>
-              )}
-              <div className="w-12 h-12 rounded-2xl bg-primary-teal/10 flex items-center justify-center text-primary-teal group-hover:scale-110 transition-transform">
-                {feature.icon}
-              </div>
-              <p className="font-extrabold text-lg leading-tight tracking-tight text-text-main">{feature.label}</p>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Action Button - Premium */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.8 }}
-          className="flex justify-start"
-        >
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="grad-teal px-10 py-5 rounded-3xl flex items-center gap-4 font-black text-xl hover:scale-[1.05] active:scale-[0.95] transition-all group shadow-2xl shadow-primary-teal/30"
-          >
-            Initialize Sync
-            <ArrowRight size={24} className="group-hover:translate-x-2 transition-transform" />
-          </button>
-        </motion.div>
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 py-16 relative overflow-hidden">
+      {/* Background orbs */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-1/4 left-1/4 w-72 h-72 rounded-full blur-3xl opacity-20"
+          style={{ background: 'radial-gradient(circle, #0d9488, transparent)' }} />
+        <div className="absolute bottom-1/4 right-1/4 w-72 h-72 rounded-full blur-3xl opacity-15"
+          style={{ background: 'radial-gradient(circle, #7c3aed, transparent)' }} />
       </div>
 
-      <div className="absolute bottom-12 text-center w-full text-[11px] font-black text-text-muted tracking-[0.2em] uppercase opacity-30">
-        Trusted by 10k+ Pioneers • HIPAA Compliant • Nexus OS v2.0
+      <div className="relative z-10 w-full max-w-sm space-y-10 text-center">
+        {/* Logo */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col items-center gap-4"
+        >
+          <motion.div
+            animate={{ rotate: [0, 5, -5, 0] }}
+            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+            className="w-20 h-20 rounded-3xl grad-hero flex items-center justify-center shadow-2xl"
+          >
+            <Zap size={40} className="text-white" />
+          </motion.div>
+          <div>
+            <h1 className="text-4xl font-black tracking-tight text-text-main" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+              Body<span className="text-gradient">Debug</span>
+            </h1>
+            <p className="text-text-muted text-sm mt-1 font-medium">Your AI Health Operating System</p>
+          </div>
+        </motion.div>
+
+        {/* Feature Carousel */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+          className="card p-6 space-y-4"
+        >
+          <div className="flex justify-center gap-1.5">
+            {features.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrentFeature(i)}
+                className="w-6 h-1.5 rounded-full transition-all duration-300"
+                style={{ background: i === currentFeature ? 'var(--primary-teal)' : 'var(--border)' }}
+              />
+            ))}
+          </div>
+
+          <motion.div
+            key={currentFeature}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="flex items-start gap-4 text-left"
+          >
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+              style={{ background: `${features[currentFeature].color}15` }}>
+              {React.createElement(features[currentFeature].icon, {
+                size: 22, style: { color: features[currentFeature].color }
+              })}
+            </div>
+            <div>
+              <p className="font-bold text-text-main">{features[currentFeature].title}</p>
+              <p className="text-sm text-text-muted mt-0.5">{features[currentFeature].desc}</p>
+            </div>
+          </motion.div>
+        </motion.div>
+
+        {/* CTA Buttons */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="space-y-3"
+        >
+          <Link
+            to="/register"
+            className="btn-primary w-full py-4 text-base justify-center rounded-2xl"
+          >
+            Get Started Free <ArrowRight size={18} />
+          </Link>
+          <Link
+            to="/login"
+            className="btn-secondary w-full py-4 text-base justify-center rounded-2xl"
+          >
+            I Already Have an Account
+          </Link>
+        </motion.div>
+
+        <p className="text-xs text-text-subtle">
+          No credit card required · Your data stays private
+        </p>
       </div>
     </div>
   );

@@ -1,220 +1,312 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import Layout from '../components/Layout';
-import { Moon, Plus, Trash2, Clock, Activity, TrendingUp, Star } from 'lucide-react';
+import { Moon, Plus, BarChart3, TrendingUp, Clock, Loader2, CheckCircle2, XCircle, Zap } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { storageService } from '../services/storage';
+import { apiService } from '../services/api';
+
+interface SleepEntry {
+  _id?: string;
+  date: string;
+  bedtime: string;
+  wake_time: string;
+  duration_hours: number;
+}
+
+function SleepBar({ hours, goal = 8 }: { hours: number; goal?: number }) {
+  const pct = Math.min(100, (hours / goal) * 100);
+  const color = hours >= goal ? '#0d9488' : hours >= goal * 0.75 ? '#eab308' : '#ef4444';
+  return (
+    <div className="space-y-1">
+      <div className="h-3 bg-border rounded-full overflow-hidden">
+        <motion.div
+          className="h-full rounded-full"
+          style={{ background: color }}
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.8 }}
+        />
+      </div>
+      <div className="flex justify-between">
+        <span className="text-xs font-bold" style={{ color }}>{hours}h</span>
+        <span className="text-xs text-text-muted">Goal: {goal}h</span>
+      </div>
+    </div>
+  );
+}
+
+function SleepQualityBadge({ hours }: { hours: number }) {
+  if (hours >= 8) return <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-400/10 text-green-600">Excellent 😴</span>;
+  if (hours >= 6) return <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-yellow-50 dark:bg-yellow-400/10 text-yellow-600">Fair 😑</span>;
+  return <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-400/10 text-red-500">Poor 😵</span>;
+}
 
 export default function SleepTrackerPage() {
-  const [bedtime, setBedtime] = useState('22:00');
-  const [wakeTime, setWakeTime] = useState('06:30');
-  const [quality, setQuality] = useState(5);
-  const [notes, setNotes] = useState('');
-  const [sleepLogs, setSleepLogs] = useState(storageService.getLogs().filter(l => l.type === 'sleep'));
+  const [bedtime, setBedtime] = useState('23:00');
+  const [wakeTime, setWakeTime] = useState('07:00');
+  const [isLogging, setIsLogging] = useState(false);
+  const [logs, setLogs] = useState<SleepEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [goalHours, setGoalHours] = useState(8);
 
-  useEffect(() => {
-    setSleepLogs(storageService.getLogs().filter(l => l.type === 'sleep'));
+  const loadSleep = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await apiService.getSleepHistory(7);
+      setLogs(data.logs || []);
+      if (data.goal_hours) setGoalHours(data.goal_hours);
+    } catch {
+      setError('Could not load sleep data.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const calculateDuration = () => {
-    const [bedHour, bedMin] = bedtime.split(':').map(Number);
-    const [wakeHour, wakeMin] = wakeTime.split(':').map(Number);
-    
-    let duration = (wakeHour + (wakeMin / 60)) - (bedHour + (bedMin / 60));
-    if (duration < 0) duration += 24;
-    return Math.round(duration * 10) / 10;
+  useEffect(() => { loadSleep(); }, [loadSleep]);
+
+  // Calculate duration from times
+  const computeDuration = (): number => {
+    const [bh, bm] = bedtime.split(':').map(Number);
+    const [wh, wm] = wakeTime.split(':').map(Number);
+    let diff = (wh * 60 + wm) - (bh * 60 + bm);
+    if (diff < 0) diff += 24 * 60; // next day
+    return Math.round((diff / 60) * 10) / 10;
   };
 
-  const handleLogSleep = () => {
-    const duration = calculateDuration();
-    
-    storageService.addLog({
-      userId: 'demo',
-      type: 'sleep',
-      value: duration,
-      notes: `${bedtime} to ${wakeTime} (Quality: ${quality}/10)`
-    });
+  const previewHours = computeDuration();
 
-    setSleepLogs(storageService.getLogs().filter(l => l.type === 'sleep'));
-    setBedtime('22:00');
-    setWakeTime('06:30');
-    setQuality(5);
-    setNotes('');
+  const handleLog = async () => {
+    setIsLogging(true);
+    setError(null);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      // Assemble ISO datetimes 
+      const bedISO = `${today}T${bedtime}:00`;
+      const wakeISO = previewHours <= 0
+        ? `${new Date(Date.now() + 86400000).toISOString().split('T')[0]}T${wakeTime}:00`
+        : `${today}T${wakeTime}:00`;
+
+      await apiService.logSleep({
+        bedtime: bedISO,
+        wake_time: wakeISO,
+        duration_hours: previewHours,
+        quality: previewHours >= goalHours ? 10 : Math.round((previewHours / goalHours) * 10),
+      });
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+      await loadSleep();
+    } catch (e: any) {
+      setError(e.message || 'Could not log sleep.');
+    } finally {
+      setIsLogging(false);
+    }
   };
 
-  const avgSleep = sleepLogs.length > 0 
-    ? (sleepLogs.reduce((sum, log) => sum + log.value, 0) / sleepLogs.length).toFixed(1)
-    : '0';
-
-  const qualityAvg = sleepLogs.length > 0
-    ? Math.round(sleepLogs.reduce((sum, log) => {
-        const quality = parseInt(log.notes?.split('Quality: ')[1]?.split('/')[0] || '5');
-        return sum + quality;
-      }, 0) / sleepLogs.length)
+  const avgSleep = logs.length
+    ? Math.round((logs.reduce((s, l) => s + l.duration_hours, 0) / logs.length) * 10) / 10
     : 0;
 
-  const duration = calculateDuration();
+  const weekBars = (logs.slice(0, 7)).reverse().map((l, i) => ({
+    day: l.date ? new Date(l.date + 'T00:00:00').toLocaleDateString('en', { weekday: 'short' }) : `D${i}`,
+    hours: l.duration_hours,
+  }));
 
   return (
     <Layout>
-      <div className="p-6 space-y-8 max-w-4xl mx-auto text-text-main">
+      <div className="space-y-6">
         {/* Header */}
-        <div className="space-y-2">
-          <h1 className="text-4xl font-black tracking-tight">Sleep Sanctuary</h1>
-          <p className="text-text-muted">Track your rest. Improve your health.</p>
+        <div>
+          <h1 className="text-2xl font-bold text-text-main" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+            Sleep Tracker
+          </h1>
+          <p className="text-text-muted text-sm mt-0.5">Monitor and improve your rest</p>
         </div>
 
-        {/* Stats Cards */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass rounded-[2.5rem] p-8 border-white/10 shadow-2xl"
-        >
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div className="space-y-2">
-              <p className="text-xs uppercase font-black text-text-muted tracking-widest">Avg Sleep</p>
-              <p className="text-3xl font-black text-indigo-400">{avgSleep}h</p>
-              <p className="text-xs text-text-muted">last 7 days</p>
+        {/* Stats Overview */}
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: 'Last Night', val: logs[0]?.duration_hours || 0, unit: 'h', color: '#7c3aed' },
+            { label: '7-day Avg', val: avgSleep, unit: 'h', color: '#0d9488' },
+            { label: 'Goal', val: goalHours, unit: 'h', color: '#0284c7' },
+          ].map(s => (
+            <div key={s.label} className="card p-4 text-center">
+              <p className="text-2xl font-black text-text-main" style={{ fontFamily: 'Space Grotesk, sans-serif', color: s.color }}>
+                {loading ? '—' : s.val}
+                <span className="text-sm">{s.unit}</span>
+              </p>
+              <p className="text-xs text-text-muted font-semibold mt-1">{s.label}</p>
             </div>
-            <div className="space-y-2">
-              <p className="text-xs uppercase font-black text-text-muted tracking-widest">Quality</p>
-              <p className="text-3xl font-black text-primary-teal">{qualityAvg}</p>
-              <p className="text-xs text-text-muted">/10</p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-xs uppercase font-black text-text-muted tracking-widest">Total Logs</p>
-              <p className="text-3xl font-black text-accent-blue">{sleepLogs.length}</p>
-              <p className="text-xs text-text-muted">nights</p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-xs uppercase font-black text-text-muted tracking-widest">Goal</p>
-              <p className="text-3xl font-black text-accent-pink">8h</p>
-              <p className="text-xs text-text-muted">target</p>
-            </div>
-          </div>
-        </motion.div>
+          ))}
+        </div>
 
-        {/* Sleep Logger */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass rounded-[2.5rem] p-8 space-y-6 border-white/10 shadow-2xl"
-        >
-          <h2 className="text-xl font-black">How did you sleep?</h2>
-
-          <div className="space-y-6">
-            {/* Bedtime & Wake Time */}
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-black text-text-muted uppercase tracking-widest mb-3">
-                  <Clock size={16} className="inline mr-2" />
-                  Bedtime
-                </label>
-                <input
-                  type="time"
-                  value={bedtime}
-                  onChange={(e) => setBedtime(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-lg font-bold focus:outline-none focus:border-primary-teal/50 transition-all text-text-main"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-black text-text-muted uppercase tracking-widest mb-3">
-                  <Moon size={16} className="inline mr-2" />
-                  Wake Time
-                </label>
-                <input
-                  type="time"
-                  value={wakeTime}
-                  onChange={(e) => setWakeTime(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-lg font-bold focus:outline-none focus:border-primary-teal/50 transition-all text-text-main"
-                />
-              </div>
-            </div>
-
-            {/* Duration Preview */}
-            <div className="bg-gradient-to-br from-indigo-400/10 to-purple-400/10 rounded-2xl p-6 border border-indigo-400/20">
-              <p className="text-sm text-text-muted uppercase font-black tracking-widest mb-2">Sleep Duration</p>
-              <p className="text-4xl font-black text-indigo-400">{duration}h</p>
-            </div>
-
-            {/* Quality Rating */}
-            <div>
-              <label className="block text-sm font-black text-text-muted uppercase tracking-widest mb-4 flex items-center gap-2">
-                <Star size={16} />
-                Sleep Quality
-              </label>
-              <div className="flex items-center gap-4">
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  value={quality}
-                  onChange={(e) => setQuality(parseInt(e.target.value))}
-                  className="flex-1 h-2 bg-white/10 rounded-full appearance-none cursor-pointer"
-                  style={{
-                    background: `linear-gradient(to right, rgb(99, 102, 241) 0%, rgb(99, 102, 241) ${(quality / 10) * 100}%, rgb(255, 255, 255) ${(quality / 10) * 100}%, rgb(255, 255, 255) 100%)`
-                  }}
-                />
-                <div className="bg-indigo-400 text-bg-dark rounded-xl px-4 py-2 font-black text-lg min-w-[60px] text-center">
-                  {quality}/10
+        {/* Weekly chart */}
+        {weekBars.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="card p-5"
+          >
+            <h2 className="font-semibold text-text-main text-sm mb-4 flex items-center gap-2">
+              <BarChart3 size={16} className="text-purple-500" />
+              7-Day Sleep Pattern
+            </h2>
+            <div className="flex items-end gap-2 h-20">
+              {weekBars.map((d, i) => {
+                const pct = Math.min(100, (d.hours / goalHours) * 100);
+                const color = d.hours >= goalHours ? '#0d9488' : d.hours >= goalHours * 0.75 ? '#eab308' : '#ef4444';
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                    <motion.div
+                      className="w-full rounded-t-lg"
+                      style={{ background: color, minHeight: 4 }}
+                      initial={{ height: 0 }}
+                      animate={{ height: `${pct * 0.8}px` }}
+                      transition={{ duration: 0.6, delay: i * 0.08 }}
+                      title={`${d.hours}h`}
+                    />
+                    <span className="text-[9px] font-bold text-text-muted">{d.day}</span>
+                  </div>
+                );
+              })}
+              {/* Fill remaining days */}
+              {Array.from({ length: Math.max(0, 7 - weekBars.length) }).map((_, i) => (
+                <div key={`empty-${i}`} className="flex-1 flex flex-col items-center gap-1">
+                  <div className="w-full h-1 bg-border rounded-t-lg" />
+                  <span className="text-[9px] font-bold text-text-subtle">—</span>
                 </div>
-              </div>
+              ))}
             </div>
+            <div className="flex items-center gap-1 mt-1">
+              <div className="w-2 h-2 rounded-full" style={{ background: 'rgba(13,148,136,0.3)' }} />
+              <span className="text-[10px] text-text-muted">Goal line: {goalHours}h</span>
+            </div>
+          </motion.div>
+        )}
 
-            {/* Notes */}
-            <div>
-              <label className="block text-sm font-black text-text-muted uppercase tracking-widest mb-3">
-                Notes
-              </label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g. Had coffee late, felt restless..."
-                className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm focus:outline-none focus:border-primary-teal/50 transition-all placeholder:text-text-muted/30 font-bold text-text-main"
-                rows={2}
+        {/* Log Sleep Form */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="card p-5 space-y-5"
+        >
+          <h2 className="font-semibold text-text-main flex items-center gap-2">
+            <Moon size={16} className="text-purple-500" />
+            Log Last Night's Sleep
+          </h2>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-text-muted">🌙 Bedtime</label>
+              <input
+                type="time"
+                value={bedtime}
+                onChange={e => setBedtime(e.target.value)}
+                className="input-field"
               />
             </div>
-
-            {/* Log Button */}
-            <button
-              onClick={handleLogSleep}
-              className="w-full py-5 rounded-2xl font-black bg-indigo-400 text-bg-dark hover:shadow-[0_0_30px_rgba(99,102,241,0.3)] transition-all flex items-center justify-center gap-3 text-lg"
-            >
-              <Moon size={24} />
-              Log Sleep
-            </button>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-text-muted">☀️ Wake Time</label>
+              <input
+                type="time"
+                value={wakeTime}
+                onChange={e => setWakeTime(e.target.value)}
+                className="input-field"
+              />
+            </div>
           </div>
+
+          {/* Preview */}
+          {previewHours > 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="rounded-xl p-4 space-y-2"
+              style={{ background: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.15)' }}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-purple-500">Sleep Preview</span>
+                <SleepQualityBadge hours={previewHours} />
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-3xl font-black text-purple-500" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                  {previewHours}
+                </span>
+                <span className="text-sm text-purple-400">hours</span>
+              </div>
+              <SleepBar hours={previewHours} goal={goalHours} />
+            </motion.div>
+          )}
+
+          <motion.button
+            whileTap={{ scale: 0.98 }}
+            onClick={handleLog}
+            disabled={isLogging || previewHours <= 0}
+            className="btn-primary w-full py-3"
+            style={previewHours <= 0 ? { opacity: 0.5 } : {}}
+          >
+            {isLogging ? <Loader2 size={16} className="animate-spin" /> : <><Moon size={16} /> Log Sleep (+40 pts)</>}
+          </motion.button>
         </motion.div>
 
-        {/* Sleep History */}
-        {sleepLogs.length > 0 && (
+        {/* History */}
+        {logs.length > 0 && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="glass rounded-[2.5rem] p-8 space-y-4 border-white/10 shadow-2xl"
+            transition={{ delay: 0.15 }}
+            className="card p-5 space-y-3"
           >
-            <h2 className="text-xl font-black flex items-center gap-2">
-              <TrendingUp size={24} className="text-indigo-400" />
-              Recent Sleep
+            <h2 className="font-semibold text-text-main flex items-center gap-2">
+              <Clock size={16} className="text-text-muted" />
+              Recent History
             </h2>
-
-            <div className="space-y-3 max-h-[400px] overflow-y-auto">
-              {sleepLogs.reverse().map((log) => (
-                <div key={log.id} className="bg-white/5 rounded-2xl p-5 flex items-center justify-between border border-white/10 hover:border-indigo-400/30 transition-all">
+            <div className="space-y-2">
+              {logs.slice(0, 5).map((log, i) => (
+                <motion.div
+                  key={log._id || i}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="flex items-center gap-3 p-3 rounded-xl"
+                  style={{ border: '1px solid var(--border)' }}
+                >
+                  <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-400/10 flex items-center justify-center">
+                    <Moon size={14} className="text-purple-500" />
+                  </div>
                   <div className="flex-1">
-                    <p className="font-bold">{log.notes?.split(' (')[0]}</p>
+                    <p className="text-sm font-semibold text-text-main">{log.date}</p>
                     <p className="text-xs text-text-muted">
-                      {log.value}h • Quality: {log.notes?.split('Quality: ')[1]?.split('/')[0]}
+                      {log.bedtime?.split('T')[1]?.slice(0, 5) || '—'} → {log.wake_time?.split('T')[1]?.slice(0, 5) || '—'}
                     </p>
                   </div>
-                  <button className="p-2 hover:bg-red-400/10 rounded-lg transition-colors text-red-400">
-                    <Trash2 size={18} />
-                  </button>
-                </div>
+                  <SleepQualityBadge hours={log.duration_hours} />
+                </motion.div>
               ))}
             </div>
           </motion.div>
         )}
+
+        {/* Notifications */}
+        <AnimatePresence>
+          {error && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium"
+              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}>
+              <XCircle size={16} /> {error}
+              <button onClick={() => setError(null)} className="ml-auto">✕</button>
+            </motion.div>
+          )}
+          {success && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium"
+              style={{ background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.2)', color: '#0d9488' }}>
+              <CheckCircle2 size={16} /> Sleep logged successfully! +40 pts earned
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </Layout>
   );

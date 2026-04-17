@@ -22,6 +22,7 @@ from models.report import (
     HealthRecordResponse
 )
 from routers.auth import get_current_user_id
+from utils.serializer import serialize_doc, serialize_docs
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -139,7 +140,7 @@ async def list_reports(user_id: str = Depends(get_current_user_id)):
         reports = await mongodb_service.get_lab_reports(user_id)
         
         return {
-            "reports": reports,
+            "reports": serialize_docs(reports),
             "total": len(reports),
             "status": "success"
         }
@@ -162,7 +163,7 @@ async def get_report(report_id: str, user_id: str = Depends(get_current_user_id)
             raise HTTPException(status_code=404, detail="Report not found")
         
         return {
-            "report": report,
+            "report": serialize_doc(report),
             "status": "success"
         }
     except HTTPException:
@@ -190,7 +191,7 @@ async def upload_health_record(
             raise HTTPException(status_code=400, detail="Empty file")
         
         # Validate file type (documents and images only)
-        allowed_extensions = {'.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx'}
+        allowed_extensions = {'.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx', '.txt', '.csv'}
         filename = file.filename.lower()
         ext = None
         for allowed in allowed_extensions:
@@ -252,7 +253,7 @@ async def list_health_records(user_id: str = Depends(get_current_user_id)):
         records = await mongodb_service.get_health_records(user_id)
         
         return {
-            "records": records,
+            "records": serialize_docs(records),
             "total": len(records),
             "status": "success"
         }

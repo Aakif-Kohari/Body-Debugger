@@ -4,6 +4,7 @@ from typing import List, Optional
 from datetime import datetime
 from routers.auth import get_current_user_id
 from services.mongodb_service import mongodb_service
+from utils.serializer import serialize_docs
 
 router = APIRouter(prefix="/api/water", tags=["water"])
 
@@ -38,10 +39,12 @@ async def get_today_water(uid: str = Depends(get_current_user_id)):
         goal_ml = custom_goals.get("water_ml") or custom_goals.get("water_target") or 3000
 
         logs = await mongodb_service.get_water_logs_today(uid)
+        serialized_logs = serialize_docs(logs)
         total = sum([log.get("amount_ml", 0) for log in logs])
         return {
             "total_ml": total,
-            "logs": logs,
+            "total_glasses": round(total / 250),
+            "logs": serialized_logs,
             "goal_ml": goal_ml
         }
     except Exception as e:

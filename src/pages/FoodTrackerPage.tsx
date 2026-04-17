@@ -1,300 +1,442 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Layout from '../components/Layout';
-import { Flame, Plus, Trash2, BarChart3, TrendingUp, Apple, Leaf } from 'lucide-react';
+import {
+  Flame, Plus, Loader2, Sparkles, ChevronDown, ChevronUp,
+  Apple, CheckCircle2, XCircle, BarChart3, Zap
+} from 'lucide-react';
 import { cn } from '../lib/utils';
 import { apiService } from '../services/api';
 
-interface FoodLog {
-  id: string;
-  meal_type: string;
-  items: any[];
+interface MacroBarProps { label: string; value: number; max: number; color: string; }
+
+function MacroBar({ label, value, max, color }: MacroBarProps) {
+  const pct = Math.min(100, Math.round((value / max) * 100));
+  return (
+    <div className="space-y-1.5">
+      <div className="flex justify-between items-center">
+        <span className="text-xs font-semibold text-text-muted">{label}</span>
+        <span className="text-xs font-bold text-text-main">{value}g</span>
+      </div>
+      <div className="h-2 bg-border rounded-full overflow-hidden">
+        <motion.div
+          className="h-full rounded-full"
+          style={{ background: color }}
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+        />
+      </div>
+    </div>
+  );
+}
+
+interface NutritionResult {
+  meal_description: string;
   total_calories: number;
   total_protein: number;
   total_carbs: number;
   total_fat: number;
-  timestamp: string;
+  items: Array<{ name: string; calories: number; protein: number; carbs: number; fat: number }>;
+  status: string;
 }
+
+interface MealLog {
+  _id?: string;
+  meal_description: string;
+  meal_type: string;
+  total_calories: number;
+  total_protein: number;
+  total_carbs: number;
+  total_fat: number;
+  date: string;
+  items?: any[];
+}
+
+const MEAL_TYPES = [
+  { id: 'breakfast', label: '🌅 Breakfast', time: '6–11am' },
+  { id: 'lunch', label: '☀️ Lunch', time: '11am–3pm' },
+  { id: 'dinner', label: '🌙 Dinner', time: '6–10pm' },
+  { id: 'snack', label: '🍎 Snack', time: 'Anytime' },
+];
+
+const MACRO_GOALS = { protein: 120, carbs: 250, fat: 65 };
 
 export default function FoodTrackerPage() {
   const [mealDescription, setMealDescription] = useState('');
-  const [mealType, setMealType] = useState('breakfast');
+  const [mealType, setMealType] = useState('lunch');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [nutritionData, setNutritionData] = useState<any>(null);
-  const [logs, setLogs] = useState<FoodLog[]>([]);
+  const [isLogging, setIsLogging] = useState(false);
+  const [nutritionResult, setNutritionResult] = useState<NutritionResult | null>(null);
+  const [todayLogs, setTodayLogs] = useState<MealLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [expandedLog, setExpandedLog] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadTodayFood();
-  }, []);
-
-  const loadTodayFood = async () => {
+  const loadFood = useCallback(async () => {
     try {
       setLoading(true);
       const data = await apiService.getTodayFood();
-      setLogs(data.logs || []);
-    } catch (err) {
-      console.error('Failed to load food logs:', err);
-      setError('Failed to load food logs');
+      const allLogs: MealLog[] = [
+        ...(data.breakfast || []),
+        ...(data.lunch || []),
+        ...(data.dinner || []),
+      ].sort((a: MealLog, b: MealLog) => (b.date || '').localeCompare(a.date || ''));
+      setTodayLogs(allLogs);
+    } catch (e) {
+      setError('Could not load today\'s food.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => { loadFood(); }, [loadFood]);
 
   const handleAnalyze = async () => {
     if (!mealDescription.trim()) return;
     setIsAnalyzing(true);
+    setNutritionResult(null);
     setError(null);
-
     try {
-      const data = await apiService.estimateNutrition(mealDescription);
-      setNutritionData({
-        itemName: mealDescription,
-        calories: data.calories,
-        protein: data.protein,
-        carbs: data.carbs,
-        fat: data.fat,
-        breakdown: data.breakdown || `Your ${mealDescription} contains a balanced mix of macronutrients.`
+      const result = await apiService.request('/api/food/estimate', {
+        method: 'POST',
+        body: JSON.stringify({ meal_description: mealDescription }),
       });
-    } catch (err) {
-      console.error('Failed to analyze nutrition:', err);
-      setError('Failed to analyze nutrition. Please try again.');
+      setNutritionResult(result);
+    } catch (e: any) {
+      setError(e.message || 'Analysis failed. Please try again.');
     } finally {
       setIsAnalyzing(false);
     }
   };
 
-  const handleLogFood = async () => {
-    if (!nutritionData) return;
-
+  const handleLogMeal = async () => {
+    if (!nutritionResult) return;
+    setIsLogging(true);
+    setError(null);
     try {
-      setError(null);
-      await apiService.logFood({
-        meal_type: mealType,
-        items: [{
-          name: mealDescription,
-          calories: nutritionData.calories,
-          protein: nutritionData.protein,
-          carbs: nutritionData.carbs,
-          fat: nutritionData.fat
-        }],
-        total_calories: nutritionData.calories,
-        total_protein: nutritionData.protein,
-        total_carbs: nutritionData.carbs,
-        total_fat: nutritionData.fat
+      await apiService.request('/api/food/log', {
+        method: 'POST',
+        body: JSON.stringify({
+          meal_description: mealDescription,
+          meal_type: mealType,
+        }),
       });
-
-      // Reload today's food logs
-      await loadTodayFood();
-
-      // Reset form
+      setSuccessMsg(`✅ ${mealType} logged! +50 pts`);
+      setNutritionResult(null);
       setMealDescription('');
-      setNutritionData(null);
-    } catch (err) {
-      console.error('Failed to log food:', err);
-      setError('Failed to log food. Please try again.');
+      setTimeout(() => setSuccessMsg(null), 3000);
+      await loadFood();
+    } catch (e: any) {
+      setError(e.message || 'Could not log meal.');
+    } finally {
+      setIsLogging(false);
     }
   };
 
-  const totalCalories = logs.reduce((sum: number, log: FoodLog) => sum + log.total_calories, 0);
-
-  if (loading) {
-    return (
-      <Layout>
-        <div className="p-6 flex items-center justify-center min-h-[400px]">
-          <div className="text-health-primary text-xl">Loading food logs...</div>
-        </div>
-      </Layout>
-    );
-  }
+  const totalCals = todayLogs.reduce((s, l) => s + (l.total_calories || 0), 0);
+  const totalProtein = todayLogs.reduce((s, l) => s + (l.total_protein || 0), 0);
+  const totalCarbs = todayLogs.reduce((s, l) => s + (l.total_carbs || 0), 0);
+  const totalFat = todayLogs.reduce((s, l) => s + (l.total_fat || 0), 0);
+  const calGoal = 2000;
+  const calPct = Math.min(100, Math.round((totalCals / calGoal) * 100));
 
   return (
     <Layout>
-      <div className="p-6 space-y-8 max-w-4xl mx-auto text-text-main">
+      <div className="space-y-6">
         {/* Header */}
-        <div className="space-y-2">
-          <h1 className="text-4xl font-black tracking-tight">Fuel Tracker</h1>
-          <p className="text-text-muted">Log what you eat. We'll decode the nutrition.</p>
+        <div>
+          <h1 className="text-2xl font-bold text-text-main" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+            Fuel Tracker
+          </h1>
+          <p className="text-text-muted text-sm mt-0.5">AI-powered nutrition analysis</p>
         </div>
 
-        {/* Stats Card */}
+        {/* Today's Overview */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="glass rounded-[2.5rem] p-8 border-white/10 shadow-2xl"
+          className="card p-5 space-y-4"
         >
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div className="space-y-2">
-              <p className="text-xs uppercase font-black text-text-muted tracking-widest">Today's Intake</p>
-              <p className="text-3xl font-black text-orange-400">{totalCalories}</p>
-              <p className="text-xs text-text-muted">kcal</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-text-subtle uppercase tracking-wider">Today's Intake</p>
+              <div className="flex items-baseline gap-1 mt-1">
+                <span className="text-4xl font-black text-text-main" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                  {loading ? '—' : totalCals}
+                </span>
+                <span className="text-sm text-text-muted font-medium">/ {calGoal} kcal</span>
+              </div>
             </div>
-            <div className="space-y-2">
-              <p className="text-xs uppercase font-black text-text-muted tracking-widest">Meals Logged</p>
-              <p className="text-3xl font-black text-accent-blue">{logs.length}</p>
-              <p className="text-xs text-text-muted">entries</p>
+            <div className="text-right">
+              <p className="text-xs font-semibold text-text-subtle">{calGoal - totalCals > 0 ? `${calGoal - totalCals} remaining` : 'Goal reached!'}</p>
+              <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full mt-1 inline-block",
+                calPct >= 100 ? 'bg-red-50 text-red-500 dark:bg-red-400/10' :
+                calPct >= 70 ? 'bg-orange-50 text-orange-500 dark:bg-orange-400/10' :
+                'bg-green-50 text-green-600 dark:bg-green-400/10')}>
+                {calPct}% of goal
+              </span>
             </div>
-            <div className="space-y-2">
-              <p className="text-xs uppercase font-black text-text-muted tracking-widest">Goal</p>
-              <p className="text-3xl font-black text-primary-teal">2000</p>
-              <p className="text-xs text-text-muted">kcal</p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-xs uppercase font-black text-text-muted tracking-widest">Remaining</p>
-              <p className={cn("text-3xl font-black", totalCalories > 2000 ? "text-red-400" : "text-green-400")}>
-                {Math.max(0, 2000 - totalCalories)}
-              </p>
-              <p className="text-xs text-text-muted">kcal</p>
-            </div>
+          </div>
+
+          {/* Calorie bar */}
+          <div className="h-2.5 bg-border rounded-full overflow-hidden">
+            <motion.div
+              className={cn("h-full rounded-full", calPct >= 100 ? 'bg-red-400' : 'grad-teal')}
+              initial={{ width: 0 }}
+              animate={{ width: `${calPct}%` }}
+              transition={{ duration: 1, ease: 'easeOut' }}
+            />
+          </div>
+
+          {/* Macro summary */}
+          <div className="grid grid-cols-3 gap-4 pt-2">
+            {[
+              { label: 'Protein', val: totalProtein, color: '#0284c7' },
+              { label: 'Carbs', val: totalCarbs, color: '#ea580c' },
+              { label: 'Fat', val: totalFat, color: '#ec4899' },
+            ].map(m => (
+              <div key={m.label} className="text-center">
+                <p className="text-lg font-bold text-text-main" style={{ fontFamily: 'Space Grotesk, sans-serif', color: m.color }}>
+                  {loading ? '—' : `${Math.round(m.val)}g`}
+                </p>
+                <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">{m.label}</p>
+              </div>
+            ))}
           </div>
         </motion.div>
 
-        {/* Input Section */}
-        {!nutritionData ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="glass rounded-[2.5rem] p-8 space-y-6 border-white/10 shadow-2xl"
-          >
-            <h2 className="text-xl font-black">What did you eat?</h2>
-            
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
-                {['breakfast', 'lunch', 'dinner'].map((type) => (
-                  <button
-                    key={type}
-                    onClick={() => setMealType(type)}
-                    className={cn(
-                      "p-4 rounded-2xl font-bold capitalize transition-all",
-                      mealType === type 
-                        ? "bg-primary-teal text-bg-dark shadow-lg shadow-primary-teal/20" 
-                        : "bg-white/5 text-text-muted border border-white/10"
-                    )}
-                  >
-                    {type}
-                  </button>
-                ))}
-              </div>
+        {/* Add Meal Form */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="card p-5 space-y-4"
+        >
+          <h2 className="font-semibold text-text-main flex items-center gap-2">
+            <Sparkles size={16} className="text-primary-teal" />
+            Analyze a Meal
+          </h2>
 
-              <textarea
-                value={mealDescription}
-                onChange={(e) => setMealDescription(e.target.value)}
-                placeholder="e.g. 2 rotis, dal curry, steamed broccoli with oil"
-                className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-sm focus:outline-none focus:border-primary-teal/50 transition-all placeholder:text-text-muted/30 font-bold text-text-main"
-                rows={3}
-              />
-
+          {/* Meal type selector */}
+          <div className="grid grid-cols-4 gap-2">
+            {MEAL_TYPES.map(t => (
               <button
-                onClick={handleAnalyze}
-                disabled={!mealDescription.trim() || isAnalyzing}
+                key={t.id}
+                onClick={() => setMealType(t.id)}
                 className={cn(
-                  "w-full py-4 rounded-2xl font-black flex items-center justify-center gap-3 transition-all shadow-lg",
-                  mealDescription.trim() && !isAnalyzing
-                    ? "bg-orange-400 text-bg-dark hover:shadow-[0_0_30px_rgba(251,146,60,0.3)]"
-                    : "bg-white/5 text-text-muted/20 cursor-not-allowed"
+                  "py-2.5 px-2 rounded-xl text-xs font-semibold transition-all text-center border",
+                  mealType === t.id
+                    ? 'grad-teal border-transparent text-white shadow-md'
+                    : 'border-border text-text-muted hover:border-primary-teal hover:text-primary-teal'
                 )}
               >
-                {isAnalyzing ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-bg-dark border-t-transparent rounded-full animate-spin" />
-                    Analyzing...
-                  </>
-                ) : (
-                  <>
-                    <Flame size={20} />
-                    Analyze Nutrition
-                  </>
-                )}
+                <span className="block text-base leading-none mb-1">{t.label.split(' ')[0]}</span>
+                {t.label.split(' ').slice(1).join(' ')}
               </button>
-            </div>
-          </motion.div>
-        ) : (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="glass rounded-[2.5rem] p-8 space-y-6 border-white/10 shadow-2xl"
+            ))}
+          </div>
+
+          {/* Text input */}
+          <textarea
+            value={mealDescription}
+            onChange={e => setMealDescription(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) handleAnalyze(); }}
+            placeholder="Describe what you ate... e.g. 'Dal chawal with sabzi and raita'"
+            className="input-field resize-none"
+            rows={3}
+          />
+
+          <motion.button
+            whileHover={{ y: -2 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleAnalyze}
+            disabled={!mealDescription.trim() || isAnalyzing}
+            className="btn-primary w-full py-3"
           >
-            <h2 className="text-2xl font-black">{mealDescription}</h2>
-            
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white/5 rounded-2xl p-5 text-center">
-                <p className="text-3xl font-black text-orange-400">{nutritionData.calories}</p>
-                <p className="text-xs text-text-muted font-black uppercase mt-2">Calories</p>
-              </div>
-              <div className="bg-white/5 rounded-2xl p-5 text-center">
-                <p className="text-3xl font-black text-accent-blue">{nutritionData.protein}g</p>
-                <p className="text-xs text-text-muted font-black uppercase mt-2">Protein</p>
-              </div>
-              <div className="bg-white/5 rounded-2xl p-5 text-center">
-                <p className="text-3xl font-black text-primary-teal">{nutritionData.carbs}g</p>
-                <p className="text-xs text-text-muted font-black uppercase mt-2">Carbs</p>
-              </div>
-              <div className="bg-white/5 rounded-2xl p-5 text-center">
-                <p className="text-3xl font-black text-accent-pink">{nutritionData.fat}g</p>
-                <p className="text-xs text-text-muted font-black uppercase mt-2">Fat</p>
-              </div>
-            </div>
+            {isAnalyzing ? (
+              <><Loader2 size={16} className="animate-spin" /> Analyzing with AI...</>
+            ) : (
+              <><Sparkles size={16} /> Analyze Nutrition</>
+            )}
+          </motion.button>
+        </motion.div>
 
-            <p className="text-sm text-text-muted leading-relaxed">{nutritionData.breakdown}</p>
+        {/* Nutrition Result */}
+        <AnimatePresence>
+          {nutritionResult && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              className="card p-5 space-y-5"
+              style={{ borderColor: 'rgba(13,148,136,0.3)' }}
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-primary-teal uppercase tracking-wider">AI Analysis</p>
+                  <h3 className="font-bold text-text-main mt-0.5 leading-snug">{nutritionResult.meal_description}</h3>
+                </div>
+                <button onClick={() => setNutritionResult(null)} className="text-text-subtle hover:text-text-main">
+                  <XCircle size={18} />
+                </button>
+              </div>
 
-            <div className="flex gap-4">
-              <button
-                onClick={handleLogFood}
-                className="flex-1 py-4 rounded-2xl font-black bg-primary-teal text-bg-dark hover:shadow-[0_0_30px_rgba(45,212,191,0.3)] transition-all"
-              >
-                <Plus size={20} className="mx-auto" />
-                Log This Meal
-              </button>
-              <button
-                onClick={() => { setNutritionData(null); setMealDescription(''); }}
-                className="flex-1 py-4 rounded-2xl font-black bg-white/5 border border-white/10 text-text-muted hover:bg-white/10 transition-all"
-              >
-                Cancel
-              </button>
-            </div>
-          </motion.div>
-        )}
+              {/* Calories highlight */}
+              <div className="text-center py-3 rounded-xl" style={{ background: 'rgba(234,88,12,0.06)', border: '1px solid rgba(234,88,12,0.15)' }}>
+                <p className="text-4xl font-black text-orange-500" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                  {nutritionResult.total_calories}
+                </p>
+                <p className="text-xs font-semibold text-text-muted mt-1">Total Calories</p>
+              </div>
 
-        {/* Food Log History */}
-        {logs.length > 0 && (
+              {/* Macro bars */}
+              <div className="space-y-3">
+                <MacroBar label="Protein" value={Math.round(nutritionResult.total_protein)} max={MACRO_GOALS.protein} color="#0284c7" />
+                <MacroBar label="Carbohydrates" value={Math.round(nutritionResult.total_carbs)} max={MACRO_GOALS.carbs} color="#ea580c" />
+                <MacroBar label="Fat" value={Math.round(nutritionResult.total_fat)} max={MACRO_GOALS.fat} color="#ec4899" />
+              </div>
+
+              {/* Items breakdown */}
+              {nutritionResult.items && nutritionResult.items.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">Breakdown by Item</p>
+                  {nutritionResult.items.map((item, i) => (
+                    <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                      <span className="text-sm text-text-main font-medium">{item.name}</span>
+                      <span className="text-sm font-bold text-orange-500">{item.calories} cal</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={handleLogMeal}
+                  disabled={isLogging}
+                  className="btn-primary flex-1 py-3"
+                >
+                  {isLogging ? <Loader2 size={16} className="animate-spin" /> : <><CheckCircle2 size={16} /> Log This Meal</>}
+                </motion.button>
+                <button
+                  onClick={() => { setNutritionResult(null); setMealDescription(''); }}
+                  className="btn-secondary px-4"
+                >
+                  Redo
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Today's Meals Log */}
+        {(todayLogs.length > 0 || loading) && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="glass rounded-[2.5rem] p-8 space-y-4 border-white/10 shadow-2xl"
+            transition={{ delay: 0.15 }}
+            className="card p-5 space-y-4"
           >
-            <h2 className="text-xl font-black flex items-center gap-2">
-              <Apple size={24} className="text-orange-400" />
+            <h2 className="font-semibold text-text-main flex items-center gap-2">
+              <Apple size={16} className="text-orange-500" />
               Today's Meals
+              <span className="ml-auto text-xs text-text-muted">{todayLogs.length} logged</span>
             </h2>
 
-            <div className="space-y-3">
-              {logs.map((log: FoodLog) => (
-                <div key={log.id} className="bg-white/5 rounded-2xl p-4 flex items-center justify-between border border-white/10">
-                  <div className="flex-1">
-                    <p className="font-bold capitalize">{log.meal_type}: {log.items[0]?.name || 'Food'}</p>
-                    <p className="text-xs text-text-muted">{log.total_calories} calories</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-orange-400">{log.total_calories} cal</p>
-                    <p className="text-xs text-text-muted">P:{log.total_protein}g C:{log.total_carbs}g F:{log.total_fat}g</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {loading ? (
+              <div className="space-y-3">
+                {[1, 2].map(i => <div key={i} className="skeleton h-14 rounded-xl" />)}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {todayLogs.map((log, i) => {
+                  const key = log._id || String(i);
+                  const isExpanded = expandedLog === key;
+                  return (
+                    <motion.div
+                      key={key}
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.06 }}
+                    >
+                      <div
+                        className="flex items-center gap-3 p-3 rounded-xl cursor-pointer hover:bg-primary-teal/5 transition-colors"
+                        style={{ border: '1px solid var(--border)' }}
+                        onClick={() => setExpandedLog(isExpanded ? null : key)}
+                      >
+                        <div className="w-9 h-9 rounded-xl bg-orange-50 dark:bg-orange-400/10 flex items-center justify-center flex-shrink-0">
+                          <Flame size={16} className="text-orange-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-text-main capitalize truncate">
+                            {log.meal_description || log.meal_type}
+                          </p>
+                          <p className="text-xs text-text-muted">
+                            {log.meal_type} · {log.total_calories} kcal
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold"
+                            style={{ color: '#ea580c' }}>
+                            {log.total_calories}
+                          </span>
+                          {isExpanded ? <ChevronUp size={14} className="text-text-muted" /> : <ChevronDown size={14} className="text-text-muted" />}
+                        </div>
+                      </div>
+                      <AnimatePresence>
+                        {isExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="grid grid-cols-3 gap-3 p-3 rounded-b-xl"
+                              style={{ background: 'var(--surface)' }}>
+                              {[
+                                { label: 'Protein', val: log.total_protein, color: '#0284c7' },
+                                { label: 'Carbs', val: log.total_carbs, color: '#ea580c' },
+                                { label: 'Fat', val: log.total_fat, color: '#ec4899' },
+                              ].map(m => (
+                                <div key={m.label} className="text-center">
+                                  <p className="text-base font-bold" style={{ color: m.color }}>{Math.round(m.val)}g</p>
+                                  <p className="text-xs text-text-muted">{m.label}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
           </motion.div>
         )}
 
-        {/* Error Display */}
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="glass rounded-[2.5rem] p-6 border-red-400/20 bg-red-400/5"
-          >
-            <p className="text-red-400 font-bold">{error}</p>
-          </motion.div>
-        )}
+        {/* Notifications */}
+        <AnimatePresence>
+          {error && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium"
+              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}>
+              <XCircle size={16} />
+              <span className="flex-1">{error}</span>
+              <button onClick={() => setError(null)}>✕</button>
+            </motion.div>
+          )}
+          {successMsg && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium"
+              style={{ background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.2)', color: '#0d9488' }}>
+              <CheckCircle2 size={16} />
+              <span>{successMsg}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </Layout>
   );
