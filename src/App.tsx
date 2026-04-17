@@ -1,6 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import { Sun, Moon } from 'lucide-react';
 import IntroPage from './pages/IntroPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -17,8 +19,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-health-lightest flex items-center justify-center">
-        <div className="text-health-primary text-xl">Loading...</div>
+      <div className="min-h-screen bg-bg-main flex items-center justify-center">
+        <div className="text-primary-teal text-xl animate-pulse">Loading...</div>
       </div>
     );
   }
@@ -26,19 +28,35 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
-// Public Route Component (redirects to dashboard if already authenticated)
+// Public Route Component
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-health-lightest flex items-center justify-center">
-        <div className="text-health-primary text-xl">Loading...</div>
+      <div className="min-h-screen bg-bg-main flex items-center justify-center">
+        <div className="text-primary-teal text-xl animate-pulse">Loading...</div>
       </div>
     );
   }
 
   return !isAuthenticated ? <>{children}</> : <Navigate to="/dashboard" replace />;
+}
+
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme();
+
+  return (
+    <motion.button
+      whileHover={{ scale: 1.1 }}
+      whileTap={{ scale: 0.9 }}
+      onClick={toggleTheme}
+      className="fixed top-6 right-6 z-50 p-3 rounded-2xl glass text-primary-teal hover:text-accent-blue transition-colors shadow-xl"
+      aria-label="Toggle Theme"
+    >
+      {theme === 'light' ? <Moon size={24} /> : <Sun size={24} />}
+    </motion.button>
+  );
 }
 
 function AppRoutes() {
@@ -63,7 +81,8 @@ function AppContent() {
   const { isAuthenticated } = useAuth();
 
   return (
-    <div className="min-h-screen bg-health-lightest text-health-dark">
+    <div className="min-h-screen bg-bg-main text-text-main font-sans selection:bg-primary-teal/20">
+      <ThemeToggle />
       <AppRoutes />
 
       {/* Floating Chatbot - only show for authenticated users */}
@@ -75,9 +94,11 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <Router>
-        <AppContent />
-      </Router>
+      <ThemeProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </ThemeProvider>
     </AuthProvider>
   );
 }

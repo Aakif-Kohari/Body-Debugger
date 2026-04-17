@@ -3,7 +3,8 @@ from typing import Optional
 
 class ChatbotRequest(BaseModel):
     """User message to the chatbot"""
-    symptom_or_mood: str  # e.g., "I had a headache all afternoon"
+    symptom: str  # Matches frontend 'symptom'
+    context: Optional[dict] = None # Matches frontend 'context'
 
 class ChatbotResponse(BaseModel):
     """Chatbot response with contextual analysis"""

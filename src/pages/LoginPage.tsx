@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, Calendar, Target, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, User, Calendar, Target, ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 
@@ -31,71 +31,75 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-health-lightest via-white to-health-light flex items-center justify-center p-4">
+    <div className="min-h-screen bg-bg-main flex items-center justify-center p-4 selection:bg-primary-teal/20 transition-colors duration-300">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md"
       >
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-10">
           <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2 }}
-            className="w-16 h-16 bg-gradient-to-r from-primary-teal to-accent-blue rounded-2xl flex items-center justify-center mx-auto mb-4"
+            initial={{ scale: 0, rotate: -20 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
+            className="w-20 h-20 grad-teal rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-primary-teal/30"
           >
-            <User size={32} className="text-white" />
+            <User size={40} className="text-white" />
           </motion.div>
-          <h1 className="text-3xl font-black text-health-dark mb-2">Welcome Back</h1>
-          <p className="text-health-muted">Sign in to your Body Debugger account</p>
+          <h1 className="text-4xl font-black text-text-main mb-2 tracking-tight">Welcome Back</h1>
+          <p className="text-text-muted font-medium">Access your Bio-Sync Dashboard</p>
         </div>
 
         {/* Login Form */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white/80 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/20"
+          className="premium-card p-10"
         >
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-7">
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                <p className="text-red-600 text-sm font-medium">{error}</p>
-              </div>
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4"
+              >
+                <p className="text-red-500 text-sm font-bold text-center">{error}</p>
+              </motion.div>
             )}
 
             <div className="space-y-2">
-              <label className="text-sm font-bold text-health-dark">Email</label>
+              <label className="text-xs font-black uppercase tracking-widest text-text-muted ml-1">Email Terminal</label>
               <div className="relative">
-                <Mail size={20} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-health-muted" />
+                <Mail size={20} className="absolute left-5 top-1/2 transform -translate-y-1/2 text-primary-teal opacity-50" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-white/50 border border-white/30 rounded-2xl focus:outline-none focus:border-primary-teal/50 transition-all font-bold text-health-dark placeholder:text-health-muted/50"
-                  placeholder="your@email.com"
+                  className="w-full pl-14 pr-5 py-4 bg-primary-teal/5 border border-primary-teal/10 rounded-2xl focus:outline-none focus:border-primary-teal/50 focus:bg-primary-teal/10 transition-all font-bold text-text-main placeholder:text-text-muted/30"
+                  placeholder="name@nexus.bio"
                   required
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-bold text-health-dark">Password</label>
+              <label className="text-xs font-black uppercase tracking-widest text-text-muted ml-1">Access Key</label>
               <div className="relative">
-                <Lock size={20} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-health-muted" />
+                <Lock size={20} className="absolute left-5 top-1/2 transform -translate-y-1/2 text-primary-teal opacity-50" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-12 pr-12 py-4 bg-white/50 border border-white/30 rounded-2xl focus:outline-none focus:border-primary-teal/50 transition-all font-bold text-health-dark placeholder:text-health-muted/50"
+                  className="w-full pl-14 pr-12 py-4 bg-primary-teal/5 border border-primary-teal/10 rounded-2xl focus:outline-none focus:border-primary-teal/50 focus:bg-primary-teal/10 transition-all font-bold text-text-main placeholder:text-text-muted/30"
                   placeholder="••••••••"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-health-muted hover:text-health-dark transition-colors"
+                  className="absolute right-5 top-1/2 transform -translate-y-1/2 text-text-muted hover:text-primary-teal transition-colors"
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -106,34 +110,34 @@ export default function LoginPage() {
               type="submit"
               disabled={isLoading}
               className={cn(
-                "w-full py-4 rounded-2xl font-black text-white transition-all flex items-center justify-center gap-2",
+                "w-full py-5 rounded-3xl font-black text-white transition-all flex items-center justify-center gap-3 text-lg shadow-xl",
                 isLoading
-                  ? "bg-health-muted cursor-not-allowed"
-                  : "bg-gradient-to-r from-primary-teal to-accent-blue hover:shadow-lg hover:shadow-primary-teal/25"
+                  ? "bg-text-muted/50 cursor-not-allowed"
+                  : "grad-teal hover:scale-[1.02] active:scale-[0.98] hover:shadow-primary-teal/40"
               )}
             >
               {isLoading ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Signing In...
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                  Authenticating...
                 </>
               ) : (
                 <>
-                  Sign In
-                  <ArrowRight size={20} />
+                  Initialize Sync
+                  <ArrowRight size={22} />
                 </>
               )}
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-health-muted">
-              Don't have an account?{' '}
+          <div className="mt-8 text-center">
+            <p className="text-text-muted font-medium">
+              New User?{' '}
               <Link
                 to="/register"
-                className="text-primary-teal font-bold hover:text-accent-blue transition-colors"
+                className="text-primary-teal font-extrabold hover:text-accent-blue transition-colors underline decoration-primary-teal/30 underline-offset-4"
               >
-                Sign up here
+                Create Bio-ID
               </Link>
             </p>
           </div>

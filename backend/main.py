@@ -3,7 +3,7 @@ A1 - Project Bootstrap
 FastAPI Application Entry Point
 Sets up CORS, environment configuration, and routes all endpoints
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import os
@@ -23,22 +23,32 @@ except Exception as e:
 # Import MongoDB service
 from services.mongodb_service import mongodb_service
 
-# Import routers
-from routers import reports, food, chat
-from routers.person_b_placeholders import (
-    water_router,
-    sleep_router,
-    gamification_router,
-    auth_router,
-    notifications_router
-)
+# Import real routers
+from routers import reports, food, chat, auth, water, sleep, gamification, notifications
+
+# Initialize APScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
 
 # Create FastAPI app
 app = FastAPI(
     title="Body Debugger API",
     description="Unified Personal Health Operating System",
-    version="0.1.0"
+    version="0.2.0"
 )
+
+# Initialize Scheduler
+scheduler = BackgroundScheduler()
+scheduler.start()
+
+# ========== HEALTH SCORE ENDPOINT ==========
+from services.health_score_service import health_score_service
+from services.firebase_service import get_current_user_id
+
+@app.get("/api/health-score", tags=["health"])
+async def get_health_score(uid: str = Depends(get_current_user_id)):
+    """Fetch the daily 0-100 health score"""
+    return await health_score_service.calculate_daily_score(uid)
 
 # ========== CORS Configuration ==========
 allowed_origins = [
@@ -46,7 +56,7 @@ allowed_origins = [
     "http://localhost:5173",      # Vite dev
     "http://127.0.0.1:3000",
     "http://127.0.0.1:5173",
-    "https://body-debugger.vercel.app",  # Production frontend (update with actual domain)
+    "https://body-debugger.vercel.app",  # Production frontend
 ]
 
 app.add_middleware(
@@ -57,50 +67,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ========== HEALTH CHECK ENDPOINT ==========
-@app.get("/health", tags=["health"])
-async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "service": "Body Debugger API",
-        "version": "0.1.0"
-    }
-
-@app.get("/", tags=["root"])
-async def root():
-    """Root endpoint with API info"""
-    return {
-        "message": "Body Debugger API - Unified Personal Health OS",
-        "docs": "/docs",
-        "redoc": "/redoc"
-    }
-
-# ========== PERSON A ROUTERS ==========
-# A4 & A8 - Lab Report Translator & Health Records
+# ========== ROUTER REGISTRATION ==========
+app.include_router(auth.router)
 app.include_router(reports.router)
-
-# A5 - Food Calorie Parser
 app.include_router(food.router)
-
-# A6 - Chatbot
 app.include_router(chat.router)
-
-# ========== PERSON B ROUTERS (PLACEHOLDERS) ==========
-# B3 - Water Logging
-app.include_router(water_router)
-
-# B4 - Sleep Logging
-app.include_router(sleep_router)
-
-# B9 - Gamification
-app.include_router(gamification_router)
-
-# B10 - Auth & Profile
-app.include_router(auth_router)
-
-# B6 - Notifications
-app.include_router(notifications_router)
+app.include_router(water.router)
+app.include_router(sleep.router)
+app.include_router(gamification.router)
+app.include_router(notifications.router)
 
 # ========== GLOBAL ERROR HANDLERS ==========
 @app.exception_handler(Exception)

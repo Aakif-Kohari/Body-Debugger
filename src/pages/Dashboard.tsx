@@ -102,101 +102,117 @@ export default function Dashboard() {
       <div className="p-6 space-y-8 max-w-2xl mx-auto text-text-main">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Namaste, Said!</h1>
-            <p className="text-text-muted text-sm">Your systems are functioning normally.</p>
-          </div>
-          <div className="w-12 h-12 rounded-2xl glass flex items-center justify-center text-primary-teal border-white/5 shadow-2xl">
-            <TrendingUp size={24} />
-          </div>
+          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
+            <h1 className="text-4xl font-black tracking-tight bg-gradient-to-r from-primary-teal to-accent-blue bg-clip-text text-transparent">
+              Namaste!
+            </h1>
+            <p className="text-text-muted text-sm font-medium">Your systems are functioning normally.</p>
+          </motion.div>
+          <motion.div 
+            whileHover={{ rotate: 15 }}
+            className="w-14 h-14 rounded-3xl glass flex items-center justify-center text-primary-teal shadow-xl border-primary-teal/10"
+          >
+            <TrendingUp size={28} />
+          </motion.div>
         </div>
 
         {/* Health Score Card */}
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass rounded-[2.5rem] p-8 relative overflow-hidden group border-white/10 shadow-2xl"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="premium-card p-10 relative overflow-hidden group"
         >
           <div className="flex justify-between items-start z-10 relative">
             <div className="space-y-1">
-              <span className="text-[11px] font-black uppercase tracking-widest text-text-muted">Personal Health Score</span>
+              <span className="text-[12px] font-black uppercase tracking-[0.2em] text-primary-teal/70">Bio-Sync Score</span>
               <div className="flex items-baseline gap-2">
-                <span className="text-7xl font-black text-white">
+                <span className="text-8xl font-black tracking-tighter text-text-main">
                   {Math.min(100, Math.round((uiStats.reduce((acc, curr) => acc + Math.min(100, curr.progress), 0) / 4)))}
                 </span>
-                <span className="text-xl font-bold text-text-muted opacity-40">/100</span>
+                <span className="text-2xl font-bold text-text-muted opacity-30">/100</span>
               </div>
             </div>
-            <div className="bg-primary-teal text-bg-dark px-4 py-1.5 rounded-full text-[11px] font-black shadow-[0_10px_20px_rgba(45,212,191,0.4)]">
-              STABLE
+            <div className="grad-teal px-6 py-2 rounded-full text-[12px] font-black tracking-widest animate-pulse">
+              OPTIMIZED
             </div>
           </div>
           
-          <div className="mt-8 relative z-10">
-            <p className="text-sm font-medium text-text-muted leading-relaxed max-w-[80%]">
-              {stats.water < 4 ? "Hydration critical. Your focus levels will suffer if you don't refill now." : "Hydration levels are optimal. System performance is high."}
+          <div className="mt-10 relative z-10">
+            <p className="text-base font-medium text-text-muted leading-relaxed max-w-[85%]">
+              {stats.water < 4 
+                ? "Hydration levels are sub-optimal. Bio-metrics suggest a 15% drop in cognitive focus." 
+                : "Your neurological and metabolic sync is at peak performance today. Keep up the high activity."}
             </p>
           </div>
 
-          <div className="absolute top-0 right-0 w-64 h-64 bg-primary-teal/5 rounded-full blur-[100px] -mr-32 -mt-32" />
+          {/* Decorative background circle */}
+          <div className="absolute top-0 right-0 w-80 h-80 bg-primary-teal/10 rounded-full blur-[120px] -mr-32 -mt-32 transition-colors group-hover:bg-primary-teal/20" />
         </motion.div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-2 gap-4">
-          <button 
+        <div className="grid grid-cols-2 gap-5">
+          <motion.button 
+            whileHover={{ y: -5, scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={handleQuickAddWater}
-            className="neu-button p-5 rounded-2xl flex items-center justify-between group active:scale-95 transition-all text-primary-teal"
+            className="premium-card p-6 flex items-center justify-between group active:scale-95 text-primary-teal"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary-teal/10 flex items-center justify-center">
-                <Droplets size={20} />
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-primary-teal/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Droplets size={24} />
               </div>
-              <span className="font-bold text-sm">Add Water</span>
+              <span className="font-extrabold text-base tracking-tight">Log Water</span>
             </div>
-            <Plus size={18} />
-          </button>
-          <button className="neu-button p-5 rounded-2xl flex items-center justify-between group active:scale-95 transition-all text-accent-blue">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-accent-blue/10 flex items-center justify-center">
-                <Flame size={20} />
+            <Plus size={20} className="opacity-40" />
+          </motion.button>
+          
+          <motion.button 
+            whileHover={{ y: -5, scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="premium-card p-6 flex items-center justify-between group active:scale-95 text-accent-blue"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-accent-blue/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Flame size={24} />
               </div>
-              <span className="font-bold text-sm">Log Food</span>
+              <span className="font-extrabold text-base tracking-tight">Record Meal</span>
             </div>
-            <Plus size={18} />
-          </button>
+            <Plus size={20} className="opacity-40" />
+          </motion.button>
         </div>
 
         {/* Individual Stats Grid */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-5 text-text-main">
           {uiStats.map((stat, i) => (
             <motion.div
               key={stat.label}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
-              className="glass p-5 rounded-3xl space-y-4 border-white/5 hover:border-white/20 transition-colors"
+              whileHover={{ y: -5 }}
+              className="premium-card p-6 space-y-5 border-primary-teal/5"
             >
               <div className="flex items-center justify-between">
-                <div className={cn("p-2 rounded-xl", stat.bg)}>
-                  <stat.icon size={18} className={stat.color} />
+                <div className={cn("p-3 rounded-2xl", stat.bg)}>
+                  <stat.icon size={22} className={stat.color} />
                 </div>
-                <ChevronRight size={14} className="text-text-muted opacity-30" />
+                <ChevronRight size={18} className="text-text-muted opacity-20" />
               </div>
               
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-text-muted">{stat.label}</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-text-muted mb-1">{stat.label}</p>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-black">{stat.value}</span>
-                  <span className="text-[10px] font-bold text-text-muted">{stat.unit}</span>
+                  <span className="text-3xl font-black tracking-tighter">{stat.value}</span>
+                  <span className="text-[11px] font-bold text-text-muted uppercase tracking-tighter">{stat.unit}</span>
                 </div>
               </div>
 
               {/* Progress Bar */}
-              <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+              <div className="h-2 bg-health-lightest dark:bg-health-dark/30 rounded-full overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${Math.min(100, stat.progress)}%` }}
-                  className={cn("h-full rounded-full shadow-[0_0_10px_rgba(255,255,255,0.1)]", stat.color.replace('text', 'bg'))}
+                  className={cn("h-full rounded-full shadow-sm", stat.color.replace('text', 'bg'))}
                 />
               </div>
             </motion.div>
@@ -206,11 +222,11 @@ export default function Dashboard() {
         {/* Error Display */}
         {error && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="glass rounded-[2.5rem] p-6 border-red-400/20 bg-red-400/5"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="premium-card p-6 border-red-500/20 bg-red-500/5 text-center"
           >
-            <p className="text-red-400 font-bold">{error}</p>
+            <p className="text-red-500 font-bold tracking-tight">{error}</p>
           </motion.div>
         )}
       </div>

@@ -21,23 +21,16 @@ from models.report import (
     HealthRecordUpload,
     HealthRecordResponse
 )
+from routers.auth import get_current_user_id
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
-
-# Placeholder for auth dependency - will be provided by Person B
-def get_current_user(authorization: str = None) -> str:
-    """Placeholder for Firebase auth verification"""
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    # Person B will implement actual token verification
-    return "user_id_placeholder"
 
 # ========== A4: LAB REPORT TRANSLATOR ==========
 
 @router.post("/upload", response_model=dict)
 async def upload_lab_report(
     file: UploadFile = File(...),
-    user_id: str = Depends(get_current_user)
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     A4 - Upload and analyze a blood lab report
@@ -133,7 +126,7 @@ async def upload_lab_report(
         raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
 
 @router.get("/list")
-async def list_reports(user_id: str = Depends(get_current_user)):
+async def list_reports(user_id: str = Depends(get_current_user_id)):
     """
     List all reports for the current user
     Retrieves from MongoDB
@@ -151,7 +144,7 @@ async def list_reports(user_id: str = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=f"Failed to fetch reports: {str(e)}")
 
 @router.get("/{report_id}")
-async def get_report(report_id: str, user_id: str = Depends(get_current_user)):
+async def get_report(report_id: str, user_id: str = Depends(get_current_user_id)):
     """
     Get a specific report's analysis
     Retrieves from MongoDB
@@ -181,7 +174,7 @@ async def upload_health_record(
     file: UploadFile = File(...),
     record_type: str = Form(...),  # "prescription", "report", "notes", etc.
     label: str = Form(...),         # User-friendly name
-    user_id: str = Depends(get_current_user)
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     A8 - Upload a health record (prescription, past report, doctor notes)
@@ -245,7 +238,7 @@ async def upload_health_record(
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 @router.get("/records/list")
-async def list_health_records(user_id: str = Depends(get_current_user)):
+async def list_health_records(user_id: str = Depends(get_current_user_id)):
     """
     List all health records for the user
     Retrieves from MongoDB
@@ -263,7 +256,7 @@ async def list_health_records(user_id: str = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=f"Failed to fetch records: {str(e)}")
 
 @router.delete("/records/{record_id}")
-async def delete_health_record(record_id: str, user_id: str = Depends(get_current_user)):
+async def delete_health_record(record_id: str, user_id: str = Depends(get_current_user_id)):
     """
     Delete a health record
     Note: File deletion from Firebase Storage should be handled by Person B

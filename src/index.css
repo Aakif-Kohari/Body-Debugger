@@ -4,55 +4,90 @@
 @theme {
   --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
   
-  --color-bg-dark: #0f172a;
-  --color-primary-teal: #2dd4bf;
-  --color-accent-blue: #3b82f6;
-  --color-health-primary: #0f766e;
-  --color-health-dark: #0f172a;
-  --color-health-muted: #475569;
-  --color-health-light: #e2e8f0;
-  --color-health-lightest: #f8fafc;
-  --color-text-main: #f8fafc;
-  --color-text-muted: #94a3b8;
+  --color-primary-teal: var(--primary-teal);
+  --color-accent-blue: var(--accent-blue);
+  
+  --color-health-primary: var(--health-primary);
+  --color-health-dark: var(--health-dark);
+  --color-health-muted: var(--health-muted);
+  --color-health-light: var(--health-light);
+  --color-health-lightest: var(--health-lightest);
+  
+  --color-bg-main: var(--bg-main);
+  --color-surface: var(--surface);
+  --color-text-main: var(--text-main);
+  --color-text-muted: var(--text-muted);
   
   --radius-xl: 1.5rem;
   --radius-2xl: 2rem;
   --radius-3xl: 2.5rem;
 }
 
+:root {
+  /* Vibrant Light Mode (Clean/Clinical) */
+  --primary-teal: #0d9488;
+  --accent-blue: #0284c7;
+  --health-primary: #14b8a6;
+  --health-dark: #0f172a;
+  --health-muted: #64748b;
+  --health-light: #e2e8f0;
+  --health-lightest: #f1f5f9;
+  --bg-main: #f8fafc;
+  --surface: rgba(255, 255, 255, 0.8);
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --glass-border: rgba(13, 148, 136, 0.1);
+  --card-shadow: 0 10px 30px -10px rgba(13, 148, 136, 0.1);
+  --bg-grad: radial-gradient(circle at 0% 0%, #ccfbf1 0%, transparent 40%),
+             radial-gradient(circle at 100% 100%, #e0f2fe 0%, transparent 40%);
+}
+
+.dark {
+  /* Dark Mode (High-Tech/Premium) */
+  --primary-teal: #2dd4bf;
+  --accent-blue: #38bdf8;
+  --health-primary: #5eead4;
+  --health-dark: #0f172a;
+  --health-muted: #94a3b8;
+  --health-light: #1e293b;
+  --health-lightest: #0f172a;
+  --bg-main: #020617;
+  --surface: rgba(15, 23, 42, 0.7);
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --card-shadow: 0 10px 40px -15px rgba(0, 0, 0, 0.5);
+  --bg-grad: radial-gradient(circle at 0% 0%, #134e4a 0%, transparent 40%),
+             radial-gradient(circle at 100% 100%, #0c4a6e 0%, transparent 40%);
+}
+
 @layer base {
   body {
-    @apply bg-bg-dark text-text-main font-sans min-h-screen relative;
-    background-image: 
-      radial-gradient(circle at 20% 20%, #1e293b 0%, transparent 40%),
-      radial-gradient(circle at 80% 80%, #0f172a 0%, transparent 40%),
-      radial-gradient(circle at 50% 50%, #115e59 0%, transparent 60%);
+    @apply bg-bg-main text-text-main font-sans min-h-screen transition-colors duration-300;
+    background-image: var(--bg-grad);
     background-attachment: fixed;
   }
 }
 
-/* Glassmorphism utility - Frosted Glass v2 */
 .glass {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--card-shadow);
 }
 
-/* Neumorphism utility - Dark Mode */
-.neu-button {
-  background: #1e293b;
-  box-shadow: 
-    6px 6px 12px rgba(0, 0, 0, 0.5), 
-    -4px -4px 10px rgba(255, 255, 255, 0.03);
-  transition: all 0.2s ease;
+.premium-card {
+  background: var(--surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--card-shadow);
+  @apply rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:border-primary-teal/30;
 }
 
-.neu-button:active {
-  box-shadow: 
-    inset 4px 4px 8px rgba(0, 0, 0, 0.5), 
-    inset -2px -2px 5px rgba(255, 255, 255, 0.03);
-  transform: scale(0.98);
+.grad-teal {
+  @apply bg-gradient-to-r from-primary-teal to-accent-blue text-white shadow-lg shadow-primary-teal/20;
 }
 
 /* Hide scrollbar */

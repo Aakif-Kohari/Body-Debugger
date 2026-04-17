@@ -9,15 +9,9 @@ from typing import Optional, List, Dict
 from services.gemini_service import gemini_service
 from services.mongodb_service import mongodb_service
 from models.chat import ChatbotRequest, ChatbotResponse
+from routers.auth import get_current_user_id
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
-
-# Placeholder for auth dependency
-def get_current_user(authorization: str = None) -> str:
-    """Placeholder for Firebase auth verification"""
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    return "user_id_placeholder"
 
 class ChatContextData(BaseModel):
     """Context data from user's recent health logs"""
@@ -29,7 +23,7 @@ class ChatContextData(BaseModel):
 @router.post("/symptom", response_model=dict)
 async def analyze_symptom(
     request: ChatbotRequest,
-    user_id: str = Depends(get_current_user)
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     A6 - "Why did I feel like this" Chatbot
@@ -176,7 +170,7 @@ Do NOT provide medical diagnosis. Suggest consulting a doctor if serious."""
 @router.get("/history")
 async def get_chat_history(
     limit: int = 20,
-    user_id: str = Depends(get_current_user)
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Get user's chat history

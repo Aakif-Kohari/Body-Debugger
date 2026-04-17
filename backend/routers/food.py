@@ -10,7 +10,7 @@ from typing import Optional
 from services.gemini_service import gemini_service
 from services.mongodb_service import mongodb_service
 from models.food_log import FoodLogInput, FoodLogResponse, FoodItemBreakdown
-from .person_b_placeholders import verify_token
+from routers.auth import get_current_user_id
 
 router = APIRouter(prefix="/api/food", tags=["food"])
 
@@ -23,7 +23,7 @@ class FoodLogRequest(BaseModel):
 @router.post("/log", response_model=dict)
 async def log_food(
     request: FoodLogRequest,
-    user_id: str = Depends(verify_token)
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     A5 - Log food intake with natural language input
@@ -80,7 +80,7 @@ async def log_food(
         raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
 
 @router.get("/today")
-async def get_today_food(user_id: str = Depends(verify_token)):
+async def get_today_food(user_id: str = Depends(get_current_user_id)):
     """
     Get today's complete food log (breakfast, lunch, dinner)
     Retrieves from MongoDB
@@ -109,7 +109,7 @@ async def get_today_food(user_id: str = Depends(verify_token)):
 @router.get("/history/{num_days}")
 async def get_food_history(
     num_days: int = 7,
-    user_id: str = Depends(verify_token)
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Get food logs for past N days

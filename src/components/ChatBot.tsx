@@ -106,33 +106,33 @@ export default function ChatBot() {
             className="glass mb-4 w-[350px] md:w-[400px] h-[550px] flex flex-col rounded-[2.5rem] overflow-hidden shadow-[0_30px_60px_-12px_rgba(0,0,0,0.5)] border-white/10"
           >
             {/* Header */}
-            <div className="bg-gradient-to-br from-white/10 to-transparent p-6 flex items-center justify-between text-white border-b border-white/5">
+            <div className="bg-gradient-to-br from-primary-teal/5 to-transparent p-6 flex items-center justify-between text-text-main border-b border-primary-teal/10">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary-teal/10 flex items-center justify-center text-primary-teal shadow-[0_0_15px_rgba(45,212,191,0.2)]">
-                  <Sparkles size={18} />
+                <div className="w-10 h-10 rounded-xl bg-primary-teal/10 flex items-center justify-center text-primary-teal shadow-xl border border-primary-teal/10">
+                  <Activity size={18} />
                 </div>
                 <div>
-                   <h3 className="font-black text-sm leading-none">Body Debugger AI</h3>
-                   <p className="text-[10px] text-primary-teal font-black uppercase mt-1 tracking-widest">Always Learning</p>
+                   <h3 className="font-extrabold text-sm leading-none bg-gradient-to-r from-primary-teal to-accent-blue bg-clip-text text-transparent italic">Body Debugger AI</h3>
+                   <p className="text-[10px] text-text-muted font-bold uppercase mt-1 tracking-widest opacity-60">System Synced</p>
                 </div>
               </div>
               <button 
                 onClick={() => setIsOpen(false)} 
-                className="w-8 h-8 glass rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
+                className="w-8 h-8 glass rounded-full flex items-center justify-center hover:bg-primary-teal/5 transition-colors border-primary-teal/10"
               >
-                <X size={16} />
+                <X size={16} className="text-primary-teal" />
               </button>
             </div>
 
             {/* Messages */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar bg-bg-main/30 backdrop-blur-sm">
               {messages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={cn(
                     "max-w-[85%] p-4 rounded-3xl text-sm leading-relaxed",
                     msg.role === 'user'
-                      ? "bg-primary-teal text-bg-dark rounded-tr-none font-bold shadow-lg shadow-primary-teal/10"
-                      : "bg-white/5 text-text-main rounded-tl-none border border-white/10"
+                      ? "grad-teal rounded-tr-none font-bold shadow-lg"
+                      : "glass text-text-main rounded-tl-none border border-primary-teal/10 font-medium"
                   )}>
                     {msg.text}
                   </div>
@@ -140,7 +140,7 @@ export default function ChatBot() {
               ))}
               {isLoading && (
                 <div className="flex justify-start">
-                  <div className="bg-white/5 p-4 rounded-3xl rounded-tl-none border border-white/10">
+                  <div className="glass p-4 rounded-3xl rounded-tl-none border border-primary-teal/10">
                     <Loader2 size={16} className="animate-spin text-primary-teal" />
                   </div>
                 </div>

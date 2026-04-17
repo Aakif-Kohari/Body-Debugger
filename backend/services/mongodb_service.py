@@ -45,10 +45,10 @@ class MongoDBService:
         """Create new user profile"""
         try:
             user_doc = {
-                "_id": f"user_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{user_data['email'][:5]}",
-                "email": user_data["email"],
-                "password_hash": user_data["password_hash"],
-                "name": user_data["name"],
+                "_id": user_data.get("_id") or f"user_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{user_data['email'][:5]}",
+                "email": user_data.get("email"),
+                "password_hash": user_data.get("password_hash"),
+                "name": user_data.get("name"),
                 "age": user_data.get("age"),
                 "health_goals": user_data.get("health_goals", []),
                 "created_at": datetime.now().isoformat(),
@@ -200,7 +200,7 @@ class MongoDBService:
             log = {
                 "user_id": uid,
                 "amount_ml": water_data.get("amount_ml", 250),
-                "timestamp": datetime.now().isoformat()
+                "timestamp": water_data.get("timestamp") or datetime.now().isoformat()
             }
             result = await self.db.water_logs.insert_one(log)
             return str(result.inserted_id)
@@ -249,6 +249,22 @@ class MongoDBService:
             return records
         except Exception as e:
             print(f"Error getting health records: {e}")
+            raise
+
+    async def save_health_record(self, uid: str, record_data: dict):
+        """Save health record metadata"""
+        try:
+            record = {
+                "user_id": uid,
+                "record_type": record_data.get("record_type"),
+                "label": record_data.get("label"),
+                "file_url": record_data.get("file_url"),
+                "created_at": datetime.now().isoformat()
+            }
+            result = await self.db.health_records.insert_one(record)
+            return str(result.inserted_id)
+        except Exception as e:
+            print(f"Error saving health record: {e}")
             raise
     
     # ========== LAB REPORTS OPERATIONS ==========
