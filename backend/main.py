@@ -6,6 +6,7 @@ Sets up CORS, environment configuration, and routes all endpoints
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 import os
 from dotenv import load_dotenv
 
@@ -16,7 +17,7 @@ load_dotenv()
 from firebase_config import init_firebase
 try:
     init_firebase()
-    print("[OK] Firebase initialized successfully")
+    print("[OK] Firebase initialization check complete")
 except Exception as e:
     print(f"[WARN] Firebase initialization warning: {e}")
 
@@ -27,7 +28,6 @@ from services.mongodb_service import mongodb_service
 from routers import reports, food, chat, auth, water, sleep, gamification, notifications
 
 # Initialize APScheduler
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.schedulers.background import BackgroundScheduler
 
 # Create FastAPI app
@@ -43,7 +43,7 @@ scheduler.start()
 
 # ========== HEALTH SCORE ENDPOINT ==========
 from services.health_score_service import health_score_service
-from services.firebase_service import get_current_user_id
+from routers.auth import get_current_user_id
 
 @app.get("/api/health-score", tags=["health"])
 async def get_health_score(uid: str = Depends(get_current_user_id)):
@@ -64,8 +64,15 @@ app.add_middleware(
     allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers"],
+    expose_headers=["Content-Length", "Access-Control-Allow-Origin"],
 )
+
+# ========== MOCK STORAGE CONFIGURATION ==========
+# Ensure mock_storage exists
+mock_dir = os.path.join(os.path.dirname(__file__), "mock_storage")
+os.makedirs(mock_dir, exist_ok=True)
+app.mount("/mock_storage", StaticFiles(directory=mock_dir), name="mock_storage")
 
 # ========== ROUTER REGISTRATION ==========
 app.include_router(auth.router)

@@ -16,12 +16,16 @@ class GeminiService:
     
     def __init__(self):
         """Initialize Gemini API"""
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
+        api_key_raw = os.getenv("GEMINI_API_KEY")
+        if not api_key_raw:
             raise ValueError("GEMINI_API_KEY not found in environment variables")
         
-        genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        # Handle multiple keys if present
+        api_keys = [k.strip() for k in api_key_raw.split(',')]
+        primary_key = api_keys[0]
+        
+        genai.configure(api_key=primary_key)
+        self.model = genai.GenerativeModel('gemini-flash-latest')
     
     def ask_gemini(self, prompt: str, json_expected: bool = False) -> Any:
         """
@@ -46,6 +50,28 @@ class GeminiService:
             return text
         except Exception as e:
             raise RuntimeError(f"Gemini API error: {str(e)}")
+    
+    def analyze_image(self, image_bytes: bytes, prompt: str) -> str:
+        """
+        Analyze an image (like a photo of a lab report) using Gemini Vision
+        
+        Args:
+            image_bytes: Raw image data
+            prompt: Text instructions for analysis
+            
+        Returns:
+            AI response text
+        """
+        try:
+            # Newer google-generativeai pattern for multimodal inputs
+            response = self.model.generate_content([
+                prompt,
+                {"mime_type": "image/jpeg", "data": image_bytes}
+            ])
+            return response.text
+        except Exception as e:
+            print(f"Gemini Vision error: {str(e)}")
+            raise RuntimeError(f"Visual analysis failed: {str(e)}")
     
     def _extract_json(self, text: str) -> str:
         """Extract JSON from text that might have markdown code blocks"""

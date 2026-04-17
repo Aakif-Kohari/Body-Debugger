@@ -11,7 +11,9 @@ def init_firebase():
     service_account_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH", "./firebase_service_account.json")
     
     if not os.path.exists(service_account_path):
-        raise FileNotFoundError(f"Firebase service account file not found at {service_account_path}")
+        print(f"[WARN] Firebase service account file not found at {service_account_path}")
+        print("[WARN] Firebase features will be disabled.")
+        return None
     
     if not firebase_admin._apps:
         cred = credentials.Certificate(service_account_path)

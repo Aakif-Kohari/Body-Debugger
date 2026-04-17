@@ -9,6 +9,8 @@ import io
 from typing import Union
 import os
 
+from services.gemini_service import gemini_service
+
 class OCRService:
     """Service to extract text from images and PDFs"""
     
@@ -17,55 +19,41 @@ class OCRService:
         self.pytesseract_available = self._check_tesseract()
     
     def _check_tesseract(self) -> bool:
-        """Check if pytesseract is properly configured"""
+        """Check if pytesseract is available (still needed for fallback or PDF-OCR)"""
         try:
             pytesseract.pytesseract.get_tesseract_version()
             return True
-        except pytesseract.TesseractNotFoundError:
-            print("Warning: Tesseract not found. Please install Tesseract-OCR from https://github.com/UB-Mannheim/tesseract/wiki")
+        except:
             return False
     
     def preprocess_image(self, image: Image.Image) -> Image.Image:
-        """
-        Preprocess image for better OCR results
-        - Convert to grayscale
-        - Increase contrast
-        - Optionally resize if too small
-        """
-        # Convert to grayscale
+        """Preprocessing still useful for highlighting text before Gemini analysis"""
         grayscale = image.convert('L')
-        
-        # Increase contrast for better text recognition
         enhancer = ImageEnhance.Contrast(grayscale)
-        enhanced = enhancer.enhance(1.5)
-        
-        # Optionally increase sharpness
-        sharpness_enhancer = ImageEnhance.Sharpness(enhanced)
-        sharpened = sharpness_enhancer.enhance(1.2)
-        
-        # Ensure minimum size (upscale if too small)
-        min_width = 800
-        if sharpened.width < min_width:
-            scale_factor = min_width / sharpened.width
-            new_size = (int(sharpened.width * scale_factor), int(sharpened.height * scale_factor))
-            sharpened = sharpened.resize(new_size, Image.Resampling.LANCZOS)
-        
-        return sharpened
+        return enhancer.enhance(1.5)
     
     def extract_text_from_image(self, image_bytes: bytes) -> str:
         """
-        Extract text from image file
-        
-        Args:
-            image_bytes: Raw image bytes
-            
-        Returns:
-            Extracted text as string
+        Extract text from image file using Gemini Vision (Replacement for Tesseract)
         """
-        if not self.pytesseract_available:
-            raise RuntimeError("Tesseract OCR not available. Please install it first.")
-        
         try:
+            print("[OCR] Using Gemini Vision for image analysis...")
+            prompt = """
+            Extract ALL text from this medical lab report image. 
+            Maintain the table structure if possible. 
+            Include parameters, values, and reference ranges.
+            """
+            text = gemini_service.analyze_image(image_bytes, prompt)
+            return text.strip()
+        except Exception as e:
+            print(f"[OCR] Gemini Vision failed, attempting local OCR fallback if available: {e}")
+            if not self.pytesseract_available:
+                raise ValueError(f"OCR Failed: Gemini error and Tesseract not installed. {e}")
+            
+            # Local fallback (for private offline use)
+            image = Image.open(io.BytesIO(image_bytes))
+            processed = self.preprocess_image(image)
+            return pytesseract.image_to_string(processed)
             # Load image from bytes
             image = Image.open(io.BytesIO(image_bytes))
             

@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/food", tags=["food"])
 class FoodLogRequest(BaseModel):
     """Request to log food"""
     meal_description: str
-    meal_type: str  # "breakfast", "lunch", "dinner"
+    meal_type: Optional[str] = None  # "breakfast", "lunch", "dinner"
     date: Optional[str] = None
 
 @router.post("/log", response_model=dict)
@@ -68,6 +68,10 @@ async def log_food(
                 food_data=response
             )
             print(f"[A5] Food log saved to MongoDB")
+            
+            # Award points
+            from services.gamification_service import gamification_service
+            await gamification_service.award_points(user_id, "food_log")
         except Exception as e:
             print(f"[A5] Warning: MongoDB save failed: {str(e)}")
         

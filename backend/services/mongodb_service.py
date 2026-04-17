@@ -331,5 +331,31 @@ class MongoDBService:
             raise
 
 
+    async def delete_lab_report(self, uid: str, report_id: str):
+        """Delete a lab report analysis"""
+        try:
+            result = await self.db.lab_reports.delete_one({
+                "user_id": uid,
+                "report_id": report_id
+            })
+            return result.deleted_count > 0
+        except Exception as e:
+            print(f"Error deleting report: {e}")
+            raise
+
+    async def delete_health_record(self, uid: str, record_id: str):
+        """Delete a health record metadata"""
+        try:
+            # First find it to get file_url
+            from bson import ObjectId
+            query = {"user_id": uid, "_id": ObjectId(record_id) if len(record_id) == 24 else record_id}
+            record = await self.db.health_records.find_one(query)
+            
+            result = await self.db.health_records.delete_one(query)
+            return result.deleted_count > 0, record.get("file_url") if record else None
+        except Exception as e:
+            print(f"Error deleting record: {e}")
+            raise
+
 # Create singleton instance
 mongodb_service = MongoDBService()

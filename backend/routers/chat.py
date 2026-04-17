@@ -40,7 +40,7 @@ async def analyze_symptom(
     Example Output: Probable causes + lifestyle suggestions
     """
     try:
-        symptom = request.symptom_or_mood.strip()
+        symptom = request.symptom.strip()
         
         if not symptom or len(symptom) < 3:
             raise HTTPException(status_code=400, detail="Please describe your symptom or mood")

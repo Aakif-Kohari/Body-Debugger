@@ -27,6 +27,11 @@ async def log_sleep(data: SleepLog, uid: str = Depends(get_current_user_id)):
         }
         
         await mongodb_service.save_sleep_log(uid, log_entry["date"], log_entry)
+        
+        # Award Points
+        from services.gamification_service import gamification_service
+        await gamification_service.award_points(uid, "sleep_log")
+        
         return {"status": "success", "duration": log_entry["duration_hours"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -35,10 +40,15 @@ async def log_sleep(data: SleepLog, uid: str = Depends(get_current_user_id)):
 async def get_sleep_history(days: int = 7, uid: str = Depends(get_current_user_id)):
     """Get sleep logs for the last X days"""
     try:
+        user = await mongodb_service.get_user(uid)
+        custom_goals = user.get("custom_goals", {}) if user else {}
+        goal_hours = custom_goals.get("sleep_hours") or 8
+
         logs = await mongodb_service.get_sleep_logs(uid, num_days=days)
         return {
             "logs": logs,
-            "average_duration": round(sum([l.get("duration_hours", 0) for l in logs]) / len(logs), 2) if logs else 0
+            "average_duration": round(sum([l.get("duration_hours", 0) for l in logs]) / len(logs), 2) if logs else 0,
+            "goal_hours": goal_hours
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

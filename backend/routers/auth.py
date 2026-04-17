@@ -163,6 +163,13 @@ async def update_profile(data: dict, uid: str = Depends(get_current_user_id)):
     await mongodb_service.update_user(uid, data)
     return {"status": "success"}
 
+@router.put("/goals")
+async def update_goals(goals: dict, uid: str = Depends(get_current_user_id)):
+    """Update user health targets (water, sleep, etc.)"""
+    # Store in a nested 'goals' object in user profile
+    await mongodb_service.update_user(uid, {"custom_goals": goals})
+    return {"status": "success", "goals": goals}
+
 @router.post("/logout")
 async def logout():
     """Client handles logout by clearing token"""

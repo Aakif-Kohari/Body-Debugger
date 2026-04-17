@@ -3,6 +3,7 @@ A7 - Storage Service
 Handles Firebase Storage uploads and downloads
 """
 import io
+import os
 from firebase_admin import storage
 from datetime import datetime
 import uuid
@@ -37,7 +38,27 @@ class StorageService:
             Public URL of the uploaded file
         """
         if not self.bucket:
-            raise RuntimeError("Firebase Storage not initialized")
+            # Fallback to local storage for testing
+            print(f"[WARN] Firebase Storage not available. Saving file locally...")
+            try:
+                # Create mock_storage directory if it doesn't exist
+                mock_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "mock_storage")
+                os.makedirs(mock_dir, exist_ok=True)
+                
+                if not filename:
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    random_id = str(uuid.uuid4())[:8]
+                    filename = f"{timestamp}_{random_id}"
+                
+                # Save file locally
+                file_path = os.path.join(mock_dir, filename)
+                with open(file_path, "wb") as f:
+                    f.write(file_bytes)
+                
+                print(f"[OK] Mock storage file saved: {file_path}")
+                return f"local://{filename}"
+            except Exception as e:
+                raise RuntimeError(f"Local storage fallback failed: {str(e)}")
         
         try:
             # Generate filename if not provided
@@ -53,11 +74,7 @@ class StorageService:
             # Upload file
             blob.upload_from_string(file_bytes, content_type=content_type)
             
-            # Make it publicly accessible (optional, depends on Firebase security rules)
-            # blob.make_public()
-            
             # Return the download URL
-            # For development, return a path that can be used with download_file()
             return f"gs://{self.bucket.name}/{blob_path}"
         
         except Exception as e:
@@ -103,6 +120,12 @@ class StorageService:
         # https://storage.googleapis.com/{bucket}/{path}
         # Or: https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{path}
         
+        if storage_path.startswith("local://"):
+            return storage_path.replace("local://", "/mock_storage/")
+        
+        if not self.bucket:
+            return storage_path # fallback
+
         if storage_path.startswith("gs://"):
             path = storage_path.replace(f"gs://{self.bucket.name}/", "")
         else:
@@ -116,18 +139,30 @@ class StorageService:
     
     def delete_file(self, storage_path: str) -> bool:
         """
-        Delete file from Firebase Storage
+        Delete file from Firebase Storage or Local Fallback
         
         Args:
-            storage_path: Path in storage
+            storage_path: Path in storage (e.g. local://file.pdf or gs://bucket/file.pdf)
             
         Returns:
             True if successful
         """
-        if not self.bucket:
-            raise RuntimeError("Firebase Storage not initialized")
-        
         try:
+            # Handle Local Fallback
+            if storage_path.startswith("local://"):
+                filename = storage_path.replace("local://", "")
+                mock_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "mock_storage")
+                file_path = os.path.join(mock_dir, filename)
+                
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    print(f"[OK] Local file deleted: {file_path}")
+                    return True
+                return False
+
+            if not self.bucket:
+                return False
+            
             if storage_path.startswith("gs://"):
                 path = storage_path.replace(f"gs://{self.bucket.name}/", "")
             else:
@@ -138,7 +173,7 @@ class StorageService:
             return True
         
         except Exception as e:
-            print(f"Warning: Failed to delete file: {str(e)}")
+            print(f"Warning: Failed to delete file {storage_path}: {str(e)}")
             return False
 
 

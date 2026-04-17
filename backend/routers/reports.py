@@ -102,6 +102,10 @@ async def upload_lab_report(
                 }
             )
             print(f"[A4] Report metadata saved to MongoDB")
+            
+            # Award points
+            from services.gamification_service import gamification_service
+            await gamification_service.award_points(user_id, "lab_report")
         except Exception as e:
             print(f"[A4] Warning: MongoDB save failed: {str(e)}")
         
@@ -209,7 +213,7 @@ async def upload_health_record(
         
         # Save metadata to MongoDB
         try:
-            await mongodb_service.save_health_record(
+            mongo_id = await mongodb_service.save_health_record(
                 uid=user_id,
                 record_data={
                     "record_type": record_type,
@@ -217,12 +221,13 @@ async def upload_health_record(
                     "file_url": file_url
                 }
             )
-            print(f"[A8] Health record saved to MongoDB")
+            print(f"[A8] Health record saved to MongoDB with ID: {mongo_id}")
         except Exception as e:
             print(f"[A8] Warning: MongoDB save failed: {str(e)}")
+            mongo_id = record_id
         
         response = {
-            "record_id": record_id,
+            "record_id": mongo_id,
             "type": record_type,
             "label": label,
             "file_url": file_url,
@@ -258,9 +263,22 @@ async def list_health_records(user_id: str = Depends(get_current_user_id)):
 @router.delete("/records/{record_id}")
 async def delete_health_record(record_id: str, user_id: str = Depends(get_current_user_id)):
     """
-    Delete a health record
-    Note: File deletion from Firebase Storage should be handled by Person B
+    Delete a health record permanently
     """
-    return {
-        "message": "Delete functionality pending - Person B to implement file cleanup"
-    }
+    try:
+        # Delete from MongoDB and get the file URL
+        success, file_url = await mongodb_service.delete_health_record(user_id, record_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Health record not found")
+        
+        # Clean up the file from storage
+        if file_url:
+            storage_service.delete_file(file_url)
+            
+        return {"status": "success", "message": "Record and associated file deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[A8] Deletion error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
