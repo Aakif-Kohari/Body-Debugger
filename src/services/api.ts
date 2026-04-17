@@ -1,7 +1,5 @@
-import { useAuth } from '../contexts/AuthContext';
-
 class ApiService {
-  private baseURL = 'http://localhost:8000';
+  private baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
   private async request(endpoint: string, options: RequestInit = {}) {
     const url = `${this.baseURL}${endpoint}`;
@@ -56,6 +54,12 @@ class ApiService {
 
   async getProfile() {
     return this.request('/api/auth/profile');
+  }
+
+  async logout() {
+    return this.request('/api/auth/logout', {
+      method: 'POST',
+    });
   }
 
   async updateProfile(profileData: any) {

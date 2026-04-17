@@ -16,8 +16,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { icon: <FileText size={20} />, label: "Files", path: "/records" },
   ];
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/');
   };
 

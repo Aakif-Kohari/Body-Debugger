@@ -1,6 +1,15 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+const apiKey = import.meta.env.GEMINI_API_KEY || '';
+const ai = new GoogleGenAI({ apiKey });
+
+function parseJsonResponse(text?: string) {
+  if (!text) {
+    throw new Error('Empty response from Gemini');
+  }
+
+  return JSON.parse(text);
+}
 
 export const geminiService = {
   async analyzeLabReport(base64Image: string, mimeType: string) {
@@ -44,7 +53,7 @@ export const geminiService = {
       }
     });
 
-    return JSON.parse(response.text);
+    return parseJsonResponse(response.text);
   },
 
   async estimateCalories(input: string) {
@@ -66,7 +75,7 @@ export const geminiService = {
         }
       }
     });
-    return JSON.parse(response.text);
+    return parseJsonResponse(response.text);
   },
 
   async chatWithContext(message: string, healthContext: any) {
@@ -77,6 +86,6 @@ export const geminiService = {
       },
       contents: message
     });
-    return response.text;
+    return response.text || '';
   }
 };

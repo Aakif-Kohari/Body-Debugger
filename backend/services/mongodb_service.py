@@ -29,16 +29,16 @@ class MongoDBService:
             
             # Test connection
             await self.client.admin.command('ping')
-            print("✓ MongoDB connected successfully")
+            print("[OK] MongoDB connected successfully")
         except Exception as e:
-            print(f"✗ MongoDB connection failed: {e}")
+            print(f"[ERROR] MongoDB connection failed: {e}")
             raise
     
     async def disconnect(self):
         """Disconnect from MongoDB"""
         if self.client:
             self.client.close()
-            print("✓ MongoDB disconnected")
+            print("[OK] MongoDB disconnected")
     
     # ========== USER OPERATIONS ==========
     async def create_user(self, user_data: dict):

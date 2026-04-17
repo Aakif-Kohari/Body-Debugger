@@ -16,9 +16,9 @@ load_dotenv()
 from firebase_config import init_firebase
 try:
     init_firebase()
-    print("✓ Firebase initialized successfully")
+    print("[OK] Firebase initialized successfully")
 except Exception as e:
-    print(f"⚠ Firebase initialization warning: {e}")
+    print(f"[WARN] Firebase initialization warning: {e}")
 
 # Import MongoDB service
 from services.mongodb_service import mongodb_service
@@ -117,31 +117,31 @@ async def global_exception_handler(request, exc):
 async def startup_event():
     """Run on app startup"""
     print("=" * 50)
-    print("🚀 Body Debugger API Starting...")
+    print("Body Debugger API Starting...")
     print("=" * 50)
     
     # Connect to MongoDB
     try:
         await mongodb_service.connect()
     except Exception as e:
-        print(f"⚠ MongoDB connection failed: {e}")
+        print(f"[WARN] MongoDB connection failed: {e}")
         print("Continuing without database...")
     
-    print("✓ FastAPI configured")
-    print("✓ CORS enabled for development")
-    print("✓ MongoDB connected")
-    print("✓ Person A endpoints ready:")
+    print("[OK] FastAPI configured")
+    print("[OK] CORS enabled for development")
+    print("[OK] MongoDB connected")
+    print("[OK] Person A endpoints ready:")
     print("  - POST /api/reports/upload (Lab Report Translator)")
     print("  - POST /api/food/log (Food Calorie Parser)")
     print("  - POST /api/chat/symptom (Chatbot)")
-    print("✓ Person B endpoints (placeholders):")
+    print("[OK] Person B endpoints (placeholders):")
     print("  - /api/water/*, /api/sleep/*, /api/gamification/*")
     print("=" * 50)
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Run on app shutdown"""
-    print("🛑 Body Debugger API shutting down...")
+    print("Body Debugger API shutting down...")
     await mongodb_service.disconnect()
 
 # ========== DEVELOPMENT SERVER ==========

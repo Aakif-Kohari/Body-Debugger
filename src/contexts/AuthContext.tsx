@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { apiService } from '../services/api';
 
 interface User {
   id: string;
@@ -19,7 +20,7 @@ interface AuthContextType {
     age?: number;
     healthGoals?: string[];
   }) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isLoading: boolean;
   isAuthenticated: boolean;
 }
@@ -44,41 +45,58 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored auth data on app start
-    const storedToken = localStorage.getItem('auth_token');
-    const storedUser = localStorage.getItem('auth_user');
+    const initializeAuth = async () => {
+      const storedToken = localStorage.getItem('auth_token');
+      const storedUser = localStorage.getItem('auth_user');
 
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
-    }
+      if (!storedToken || !storedUser) {
+        setIsLoading(false);
+        return;
+      }
 
-    setIsLoading(false);
+      try {
+        setToken(storedToken);
+        setUser(JSON.parse(storedUser));
+
+        const profile = await apiService.getProfile();
+        const normalizedUser = normalizeUser(profile);
+        setUser(normalizedUser);
+        localStorage.setItem('auth_user', JSON.stringify(normalizedUser));
+      } catch {
+        clearAuthState();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeAuth();
   }, []);
+
+  const normalizeUser = (backendUser: any): User => ({
+    id: backendUser.id,
+    email: backendUser.email,
+    name: backendUser.name,
+    age: backendUser.age,
+    healthGoals: backendUser.health_goals ?? backendUser.healthGoals ?? [],
+  });
+
+  const clearAuthState = () => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+  };
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await fetch('http://localhost:8000/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Login failed');
-      }
-
-      const data = await response.json();
+      const data = await apiService.login(email, password);
+      const normalizedUser = normalizeUser(data.user);
 
       setToken(data.access_token);
-      setUser(data.user);
+      setUser(normalizedUser);
 
-      // Store in localStorage
       localStorage.setItem('auth_token', data.access_token);
-      localStorage.setItem('auth_user', JSON.stringify(data.user));
+      localStorage.setItem('auth_user', JSON.stringify(normalizedUser));
 
     } catch (error) {
       console.error('Login error:', error);
@@ -94,27 +112,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     healthGoals?: string[];
   }) => {
     try {
-      const response = await fetch('http://localhost:8000/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData),
+      const data = await apiService.register({
+        ...userData,
+        healthGoals: userData.healthGoals ?? [],
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Registration failed');
-      }
-
-      const data = await response.json();
+      const normalizedUser = normalizeUser(data.user);
 
       setToken(data.access_token);
-      setUser(data.user);
+      setUser(normalizedUser);
 
-      // Store in localStorage
       localStorage.setItem('auth_token', data.access_token);
-      localStorage.setItem('auth_user', JSON.stringify(data.user));
+      localStorage.setItem('auth_user', JSON.stringify(normalizedUser));
 
     } catch (error) {
       console.error('Registration error:', error);
@@ -122,11 +130,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('auth_user');
+  const logout = async () => {
+    try {
+      await apiService.logout();
+    } catch {
+      // Logout should always clear local state even if API call fails.
+    } finally {
+      clearAuthState();
+    }
   };
 
   const value: AuthContextType = {

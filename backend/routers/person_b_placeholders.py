@@ -4,7 +4,7 @@ Complete authentication system with JWT tokens
 """
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime, timedelta
 import jwt
 import bcrypt
@@ -24,7 +24,10 @@ class UserRegister(BaseModel):
     password: str
     name: str
     age: int = None
-    health_goals: list[str] = []
+    health_goals: list[str] = Field(default_factory=list, alias="healthGoals")
+
+    class Config:
+        allow_population_by_field_name = True
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -59,7 +62,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
         return user_id
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.JWTError:
+    except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
 @auth_router.post("/register", response_model=TokenResponse)
@@ -102,6 +105,8 @@ async def register_user(user_data: UserRegister):
             "user": user_data
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
 
@@ -119,7 +124,7 @@ async def login_user(user_data: UserLogin):
             raise HTTPException(status_code=401, detail="Invalid credentials")
 
         # Create access token
-        access_token = create_access_token(data={"sub": user["_id"]})
+        access_token = create_access_token(data={"sub": str(user["_id"])})
 
         # Return user data (without password)
         user_data = {
@@ -156,6 +161,8 @@ async def get_user_profile(user_id: str = Depends(verify_token)):
             "age": user.get("age"),
             "health_goals": user.get("health_goals", [])
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get profile: {str(e)}")
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import Layout from '../components/Layout';
-import { Droplets, Flame, Moon, Smartphone, TrendingUp, ChevronRight, Plus, Loader2 } from 'lucide-react';
+import { Droplets, Flame, Moon, Smartphone, TrendingUp, ChevronRight, Plus, Loader2, type LucideIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { apiService } from '../services/api';
 
@@ -58,11 +58,19 @@ export default function Dashboard() {
     }
   };
 
-  const uiStats = [
-    { label: "Hydration", value: stats.water.toString(), unit: "glasses", icon: <Droplets />, color: "text-blue-400", bg: "bg-blue-400/10", progress: (stats.water / 8) * 100 },
-    { label: "Sleep", value: stats.sleep.toString(), unit: "hours", icon: <Moon />, color: "text-indigo-400", bg: "bg-indigo-400/10", progress: (stats.sleep / 8) * 100 },
-    { label: "Fuel", value: stats.calories.toString(), unit: "kcal", icon: <Flame />, color: "text-orange-400", bg: "bg-orange-400/10", progress: (stats.calories / 2000) * 100 },
-    { label: "Screen", value: stats.screenTime.toString(), unit: "hours", icon: <Smartphone />, color: "text-purple-400", bg: "bg-purple-400/10", progress: (stats.screenTime / 6) * 100 },
+  const uiStats: Array<{
+    label: string;
+    value: string;
+    unit: string;
+    icon: LucideIcon;
+    color: string;
+    bg: string;
+    progress: number;
+  }> = [
+    { label: "Hydration", value: stats.water.toString(), unit: "glasses", icon: Droplets, color: "text-blue-400", bg: "bg-blue-400/10", progress: (stats.water / 8) * 100 },
+    { label: "Sleep", value: stats.sleep.toString(), unit: "hours", icon: Moon, color: "text-indigo-400", bg: "bg-indigo-400/10", progress: (stats.sleep / 8) * 100 },
+    { label: "Fuel", value: stats.calories.toString(), unit: "kcal", icon: Flame, color: "text-orange-400", bg: "bg-orange-400/10", progress: (stats.calories / 2000) * 100 },
+    { label: "Screen", value: stats.screenTime.toString(), unit: "hours", icon: Smartphone, color: "text-purple-400", bg: "bg-purple-400/10", progress: (stats.screenTime / 6) * 100 },
   ];
 
   const handleQuickAddWater = async () => {
@@ -170,7 +178,7 @@ export default function Dashboard() {
             >
               <div className="flex items-center justify-between">
                 <div className={cn("p-2 rounded-xl", stat.bg)}>
-                  {React.cloneElement(stat.icon as React.ReactElement, { size: 18, className: stat.color })}
+                  <stat.icon size={18} className={stat.color} />
                 </div>
                 <ChevronRight size={14} className="text-text-muted opacity-30" />
               </div>
