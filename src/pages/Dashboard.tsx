@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import Layout from '../components/Layout';
 import {
   Droplets, Flame, Moon, TrendingUp, Plus, Loader2, Star, Trophy,
-  Activity, Heart, Zap, Target, ChevronRight, RefreshCw, Check
+  Activity, Heart, Zap, Target, ChevronRight, RefreshCw, Check, Info
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { apiService } from '../services/api';
@@ -265,6 +265,29 @@ export default function Dashboard() {
               <span className="text-white text-xs font-bold">Lv {data.level} · {data.rank}</span>
             </div>
           </div>
+        </motion.div>
+
+        {/* Daily Summary Snapshot */}
+        <motion.div
+           initial={{ opacity: 0, y: 10 }}
+           animate={{ opacity: 1, y: 0 }}
+           className="glass p-5 rounded-2xl border-white/5 relative overflow-hidden"
+        >
+           <div className="absolute -top-4 -right-4 p-4 opacity-5">
+             <Target size={80} />
+           </div>
+           <div className="flex gap-4">
+              <div className="w-12 h-12 rounded-xl bg-primary-teal/10 flex items-center justify-center shrink-0 border border-primary-teal/20">
+                 <Info size={24} className="text-primary-teal" />
+              </div>
+              <div className="relative z-10">
+                 <h3 className="font-bold text-sm text-white mb-1.5 tracking-wide">Daily Snapshot</h3>
+                 <p className="text-xs text-text-muted leading-relaxed font-medium">
+                   {loading ? "Analyzing your latest vitals..." : 
+                     `You've logged ${data.waterTotal}ml of water and ${data.calories} kcal today, following ${data.sleepHours} hours of rest. You hold the prestigious rank of ${data.rank} with ${data.points} Health XP!`}
+                 </p>
+              </div>
+           </div>
         </motion.div>
 
         {error && (

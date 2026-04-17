@@ -99,6 +99,7 @@ class MongoDBService:
                 "user_id": uid,
                 "date": date,
                 "meal_type": food_data.get("meal_type"),
+                "meal_description": food_data.get("meal_description"),
                 "items": food_data.get("items", []),
                 "total_calories": food_data.get("total_calories", 0),
                 "total_protein": food_data.get("total_protein", 0),
@@ -134,6 +135,21 @@ class MongoDBService:
         except Exception as e:
             print(f"Error getting food history: {e}")
             raise
+    
+    async def delete_food_log(self, uid: str, log_id: str):
+        """Delete a food log for a user"""
+        try:
+            # Need to convert string id to ObjectId
+            from bson.objectid import ObjectId
+            result = await self.db.food_logs.delete_one({
+                "_id": ObjectId(log_id),
+                "user_id": uid
+            })
+            return result.deleted_count > 0
+        except Exception as e:
+            print(f"Error deleting food log: {e}")
+            raise
+
     
     # ========== CHAT HISTORY OPERATIONS ==========
     async def save_chat_message(self, uid: str, message_data: dict):
@@ -191,6 +207,19 @@ class MongoDBService:
             return logs
         except Exception as e:
             print(f"Error getting sleep logs: {e}")
+            raise
+    
+    async def delete_sleep_log(self, uid: str, log_id: str):
+        """Delete a sleep log"""
+        try:
+            from bson.objectid import ObjectId
+            result = await self.db.sleep_logs.delete_one({
+                "_id": ObjectId(log_id),
+                "user_id": uid
+            })
+            return result.deleted_count > 0
+        except Exception as e:
+            print(f"Error deleting sleep log: {e}")
             raise
     
     # ========== WATER LOG OPERATIONS ==========

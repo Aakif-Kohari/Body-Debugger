@@ -63,3 +63,19 @@ async def get_sleep_history(days: int = 7, uid: str = Depends(get_current_user_i
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/{log_id}")
+async def delete_sleep_route(
+    log_id: str,
+    uid: str = Depends(get_current_user_id)
+):
+    """Delete a sleep log"""
+    try:
+        success = await mongodb_service.delete_sleep_log(uid, log_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Sleep log not found")
+        return {"status": "success"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

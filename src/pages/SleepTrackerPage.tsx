@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Layout from '../components/Layout';
-import { Moon, Plus, BarChart3, TrendingUp, Clock, Loader2, CheckCircle2, XCircle, Zap } from 'lucide-react';
+import { Moon, Plus, BarChart3, TrendingUp, Clock, Loader2, CheckCircle2, XCircle, Zap, Trash2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { apiService } from '../services/api';
 
@@ -48,7 +48,7 @@ export default function SleepTrackerPage() {
   const [logs, setLogs] = useState<SleepEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [goalHours, setGoalHours] = useState(8);
 
   const loadSleep = useCallback(async () => {
@@ -94,13 +94,27 @@ export default function SleepTrackerPage() {
         duration_hours: previewHours,
         quality: previewHours >= goalHours ? 10 : Math.round((previewHours / goalHours) * 10),
       });
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
+      setSuccessMsg("Sleep logged successfully! +40 pts earned");
+      setTimeout(() => setSuccessMsg(null), 3000);
       await loadSleep();
     } catch (e: any) {
       setError(e.message || 'Could not log sleep.');
     } finally {
       setIsLogging(false);
+    }
+  };
+
+  const handleDeleteSleep = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Are you sure you want to delete this sleep log?")) return;
+    try {
+      await apiService.deleteSleep(id);
+      setSuccessMsg("🗑️ Sleep log deleted successfully!");
+      setTimeout(() => setSuccessMsg(null), 3000);
+      await loadSleep();
+    } catch (err: any) {
+      console.error(err);
+      setError(`Failed: ${err.message || "Could not delete sleep log"}`);
     }
   };
 
@@ -152,7 +166,7 @@ export default function SleepTrackerPage() {
               <BarChart3 size={16} className="text-purple-500" />
               7-Day Sleep Pattern
             </h2>
-            <div className="flex items-end gap-2 h-20">
+            <div className="flex items-end gap-2 h-32 mt-2">
               {weekBars.map((d, i) => {
                 const pct = Math.min(100, (d.hours / goalHours) * 100);
                 const color = d.hours >= goalHours ? '#0d9488' : d.hours >= goalHours * 0.75 ? '#eab308' : '#ef4444';
@@ -162,7 +176,7 @@ export default function SleepTrackerPage() {
                       className="w-full rounded-t-lg"
                       style={{ background: color, minHeight: 4 }}
                       initial={{ height: 0 }}
-                      animate={{ height: `${pct * 0.8}px` }}
+                      animate={{ height: `${pct * 1.2}px` }}
                       transition={{ duration: 0.6, delay: i * 0.08 }}
                       title={`${d.hours}h`}
                     />
@@ -283,6 +297,12 @@ export default function SleepTrackerPage() {
                     </p>
                   </div>
                   <SleepQualityBadge hours={log.duration_hours} />
+                  <button 
+                     onClick={(e) => handleDeleteSleep(log._id!, e)}
+                     className="p-1 rounded opacity-50 hover:opacity-100 hover:bg-red-500/10 hover:text-red-500 transition-all text-text-muted ml-1"
+                  >
+                     <Trash2 size={16} />
+                  </button>
                 </motion.div>
               ))}
             </div>
@@ -299,11 +319,11 @@ export default function SleepTrackerPage() {
               <button onClick={() => setError(null)} className="ml-auto">✕</button>
             </motion.div>
           )}
-          {success && (
+          {successMsg && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium"
               style={{ background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.2)', color: '#0d9488' }}>
-              <CheckCircle2 size={16} /> Sleep logged successfully! +40 pts earned
+              <CheckCircle2 size={16} /> {successMsg}
             </motion.div>
           )}
         </AnimatePresence>

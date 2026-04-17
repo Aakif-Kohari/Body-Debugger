@@ -85,7 +85,15 @@ class ApiService {
   }
 
   async getTodayFood() {
-    return this.request('/api/food/today');
+    // Determine the local date so it resets strictly at user's local midnight.
+    const localDate = new Date().toLocaleDateString('en-CA'); // format: YYYY-MM-DD
+    return this.request(`/api/food/today?date=${localDate}`);
+  }
+
+  async deleteMeal(id: string) {
+    return this.request(`/api/food/${id}`, {
+      method: 'DELETE'
+    });
   }
 
   async getFoodHistory(days: number = 7) {
@@ -107,10 +115,10 @@ class ApiService {
     });
   }
 
-  async sendQuickCheck(message: string) {
+  async sendQuickCheck(symptom: string) {
     return this.request('/api/chat/quick-check', {
       method: 'POST',
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ symptom }),
     });
   }
 
@@ -193,6 +201,12 @@ class ApiService {
 
   async getSleepHistory(days: number = 7) {
     return this.request(`/api/sleep/history?days=${days}`);
+  }
+
+  async deleteSleep(id: string) {
+    return this.request(`/api/sleep/${id}`, {
+      method: 'DELETE'
+    });
   }
 
   // ========== WATER METHODS ==========

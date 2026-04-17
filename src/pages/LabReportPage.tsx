@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import Layout from '../components/Layout';
 import { Upload, FileText, CheckCircle2, AlertCircle, Info, Stethoscope, ArrowLeft } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { geminiService } from '../services/gemini';
+import { apiService } from '../services/api';
 
 export default function LabReportPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -20,21 +20,38 @@ export default function LabReportPage() {
     if (!file) return;
     setIsProcessing(true);
     
-    // Convert to base64 for Gemini
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64 = (reader.result as string).split(',')[1];
-      try {
-        const data = await geminiService.analyzeLabReport(base64, file.type);
-        setResults(data);
-      } catch (error) {
-        console.error("AI Analysis failed", error);
-        alert("Failed to analyze report. Please try again.");
-      } finally {
-        setIsProcessing(false);
+    try {
+      // Send the file directly to our newly fortified Python backend which avoids API limits
+      const data = await apiService.uploadLabReport(file);
+      
+      if (!data || !data.analysis) {
+         throw new Error("No analysis returned from backend");
       }
-    };
-    reader.readAsDataURL(file);
+
+      // Map the Python backend's schema (which we fixed) to the React UI's expected schema
+      const mappedResults = {
+        summary: data.analysis.overall_health_assessment || data.analysis.summary_for_doctor,
+        results: (data.analysis.parameters || []).map((p: any) => ({
+          name: p.parameter_name,
+          value: p.user_value,
+          unit: "", // backend string might mix value and unit
+          range: p.normal_range,
+          status: (p.risk_flag === "green" || p.risk_flag?.toLowerCase() === "normal") ? "normal" : 
+                 (p.risk_flag === "yellow" ? "low" : "high"), // rough mapping for UI coloring
+          meaning: p.plain_english_meaning,
+          tip: p.lifestyle_tip
+        })),
+        lifestyleTips: data.analysis.recommendations || [],
+        doctorQuestions: [(data.analysis.summary_for_doctor || "Discuss these findings with doctor.")]
+      };
+
+      setResults(mappedResults);
+    } catch (error: any) {
+      console.error("AI Analysis failed backend route", error);
+      alert(`Failed to analyze report: ${error.message || "Please try again."}`);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (

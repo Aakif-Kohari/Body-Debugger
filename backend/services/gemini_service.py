@@ -8,6 +8,8 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 from typing import Dict, Any, List
 import re
+import itertools
+from groq import Groq
 
 load_dotenv()
 
@@ -26,18 +28,46 @@ class GeminiService:
         
         genai.configure(api_key=primary_key)
         self.model = genai.GenerativeModel('gemini-flash-latest')
+        
+        # Setup Groq keys for round-robin rotation to avoid rate limits
+        groq_keys_raw = os.getenv("GROQ_API_KEYS", "")
+        self.groq_keys = [k.strip() for k in groq_keys_raw.split(',')] if groq_keys_raw else []
+        self.groq_key_cycle = itertools.cycle(self.groq_keys) if self.groq_keys else None
+
     
     def ask_gemini(self, prompt: str, json_expected: bool = False) -> Any:
         """
-        Generic method to ask Gemini a question
+        Generic method to ask a question.
+        Uses Groq as the primary fast engine with key rotation, falling back to Gemini if all keys fail.
         
         Args:
-            prompt: The prompt to send to Gemini
+            prompt: The prompt to send
             json_expected: If True, attempt to parse response as JSON
             
         Returns:
             Response text or parsed JSON
         """
+        last_error = None
+        for _ in range(len(self.groq_keys)):
+            current_key = next(self.groq_key_cycle)
+            try:
+                client = Groq(api_key=current_key)
+                response = client.chat.completions.create(
+                    model='llama-3.3-70b-versatile',
+                    messages=[{'role': 'user', 'content': prompt}]
+                )
+                text = response.choices[0].message.content
+                
+                if json_expected:
+                    json_text = self._extract_json(text)
+                    return json.loads(json_text)
+                    
+                return text
+            except Exception as e:
+                print(f"Groq API Error on key ({current_key[:8]}...): {str(e)}")
+                last_error = e
+
+        print("All Groq keys exceeded or failed. Falling back to Gemini API.")
         try:
             response = self.model.generate_content(prompt)
             text = response.text
@@ -49,7 +79,8 @@ class GeminiService:
             
             return text
         except Exception as e:
-            raise RuntimeError(f"Gemini API error: {str(e)}")
+            raise RuntimeError(f"All AI APIs failed: {str(e)}")
+
     
     def analyze_image(self, image_bytes: bytes, prompt: str) -> str:
         """
@@ -156,39 +187,32 @@ Respond with ONLY this JSON format (no markdown, no explanation):
     "total_fat": 5
 }}
 
-For Indian cuisine, use reasonable estimates. If unsure, ask for clarification in the JSON.
+If the user provides dummy text, a random greeting, or anything clearly NOT related to food/meals, return ONLY this JSON:
+{{
+    "error": "Please provide a correct meal description. This does not appear to be food."
+}}
+
+For Indian cuisine, use reasonable estimates. If unsure about vague foods, do your best to estimate.
 
 Meal Description: {meal_description}"""
-
         try:
             response = self.ask_gemini(prompt, json_expected=True)
             # Ensure response has the right structure
             if isinstance(response, dict):
+                if "error" in response:
+                    raise ValueError(response["error"])
                 return response
-            else:
-                raise ValueError("Invalid response format from Gemini")
+            return {"items": [], "total_calories": 0}
+        except ValueError as e:
+            raise e
         except Exception as e:
-            print(f"Error parsing food: {str(e)}")
-            # Return a default response structure
-            return {
-                "items": [{
-                    "item_name": meal_description,
-                    "quantity": "unknown",
-                    "calories": 0,
-                    "protein_grams": 0,
-                    "carbs_grams": 0,
-                    "fat_grams": 0
-                }],
-                "total_calories": 0,
-                "total_protein": 0,
-                "total_carbs": 0,
-                "total_fat": 0
-            }
+            raise ValueError(f"AI could not parse your meal: {str(e)}")
     
     # ========== CHATBOT PROMPTS ==========
     
     def analyze_symptom_with_context(self, 
                                      symptom: str, 
+                                     user_profile: Dict[str, Any] = None,
                                      recent_sleep_hours: float = None,
                                      recent_water_intake: float = None,
                                      recent_food_items: List[str] = None,
@@ -198,6 +222,7 @@ Meal Description: {meal_description}"""
         
         Args:
             symptom: User's reported symptom or mood
+            user_profile: Dict containing demographic info like age, sex, goals
             recent_sleep_hours: Hours slept last night
             recent_water_intake: Water intake in ml
             recent_food_items: List of recent food items
@@ -207,6 +232,14 @@ Meal Description: {meal_description}"""
             Conversational response with probable causes
         """
         context_str = ""
+        if user_profile:
+            age = user_profile.get("age")
+            goals = ", ".join(user_profile.get("goals", []))
+            if age:
+                context_str += f"- User Age: {age} years old\n"
+            if goals:
+                context_str += f"- Health Goals: {goals}\n"
+        
         if recent_sleep_hours:
             context_str += f"- Sleep last night: {recent_sleep_hours} hours\n"
         if recent_water_intake:

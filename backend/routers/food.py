@@ -41,8 +41,11 @@ async def log_food(
         # Call Gemini to parse the food
         try:
             parsed_data = gemini_service.parse_food_input(request.meal_description)
+        except ValueError as ve:
+            print(f"[A5] User input rejected: {str(ve)}")
+            raise HTTPException(status_code=400, detail=str(ve))
         except Exception as e:
-            print(f"[A5] Gemini parsing error: {str(e)}")
+            print(f"[A5] Groq parsing error: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to analyze food: {str(e)}")
         
         # Format response
@@ -85,21 +88,24 @@ async def log_food(
         raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
 
 @router.get("/today")
-async def get_today_food(user_id: str = Depends(get_current_user_id)):
+async def get_today_food(
+    date: str = None,
+    user_id: str = Depends(get_current_user_id)
+):
     """
     Get today's complete food log (breakfast, lunch, dinner)
     Retrieves from MongoDB
     """
     try:
-        today = datetime.now().strftime("%Y-%m-%d")
-        logs = await mongodb_service.get_food_logs(user_id, today)
+        target_date = date if date else datetime.now().strftime("%Y-%m-%d")
+        logs = await mongodb_service.get_food_logs(user_id, target_date)
         
         # Organize by meal type — serialize each log to handle ObjectIds
         def _serialize_logs(logs_list):
             return serialize_docs(logs_list)
         
         organized = {
-            "date": today,
+            "date": target_date,
             "breakfast": _serialize_logs([l for l in logs if l.get("meal_type") == "breakfast"]),
             "lunch": _serialize_logs([l for l in logs if l.get("meal_type") == "lunch"]),
             "dinner": _serialize_logs([l for l in logs if l.get("meal_type") == "dinner"]),
@@ -174,3 +180,21 @@ async def estimate_calories_route(request: FoodLogRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Estimation failed: {str(e)}")
+
+@router.delete("/{log_id}")
+async def delete_food_route(
+    log_id: str,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Delete a specific food log by its ID
+    """
+    try:
+        success = await mongodb_service.delete_food_log(user_id, log_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Food log not found or already deleted")
+        return {"status": "success", "message": "Food log deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Deletion failed: {str(e)}")

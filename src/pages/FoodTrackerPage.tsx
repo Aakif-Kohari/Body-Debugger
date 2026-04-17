@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import Layout from '../components/Layout';
 import {
   Flame, Plus, Loader2, Sparkles, ChevronDown, ChevronUp,
-  Apple, CheckCircle2, XCircle, BarChart3, Zap
+  Apple, CheckCircle2, XCircle, BarChart3, Zap, Droplets, Trash2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { apiService } from '../services/api';
@@ -50,6 +50,7 @@ interface MealLog {
   total_carbs: number;
   total_fat: number;
   date: string;
+  created_at?: string;
   items?: any[];
 }
 
@@ -82,7 +83,8 @@ export default function FoodTrackerPage() {
         ...(data.breakfast || []),
         ...(data.lunch || []),
         ...(data.dinner || []),
-      ].sort((a: MealLog, b: MealLog) => (b.date || '').localeCompare(a.date || ''));
+        ...(data.snacks || []),
+      ].sort((a: MealLog, b: MealLog) => (b.created_at || '').localeCompare(a.created_at || ''));
       setTodayLogs(allLogs);
     } catch (e) {
       setError('Could not load today\'s food.');
@@ -132,6 +134,33 @@ export default function FoodTrackerPage() {
       setError(e.message || 'Could not log meal.');
     } finally {
       setIsLogging(false);
+    }
+  };
+
+  const [waterLogging, setWaterLogging] = useState(false);
+  const logWater = async (ml: number) => {
+    setWaterLogging(true);
+    try {
+      await apiService.logWater(ml);
+      setSuccessMsg(`💧 ${ml}ml water logged!`);
+      setTimeout(() => setSuccessMsg(null), 3000);
+    } catch {
+      setError('Failed to log water');
+    } finally {
+      setWaterLogging(false);
+    }
+  };
+
+  const handleDeleteMeal = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Are you sure you want to delete this meal?")) return;
+    try {
+      await apiService.deleteMeal(id);
+      setSuccessMsg("🗑️ Meal deleted successfully");
+      setTimeout(() => setSuccessMsg(null), 3000);
+      await loadFood();
+    } catch (err: any) {
+      setError("Failed to delete meal");
     }
   };
 
@@ -204,6 +233,37 @@ export default function FoodTrackerPage() {
                 <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">{m.label}</p>
               </div>
             ))}
+          </div>
+        </motion.div>
+
+        {/* Quick Water Tracker */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="card p-5 space-y-3"
+          style={{ borderColor: 'rgba(2, 132, 199, 0.2)', backgroundColor: 'rgba(2, 132, 199, 0.02)' }}
+        >
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-8 h-8 rounded-full bg-sky-500/20 flex items-center justify-center shrink-0">
+               <Droplets size={16} className="text-sky-500" />
+            </div>
+            <div>
+               <h3 className="font-bold text-sm text-text-main">Hydration Quick Add</h3>
+               <p className="text-xs text-text-muted">Log drinks alongside your food</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+             {[100, 250, 500, 1000].map(ml => (
+                <button
+                   key={ml}
+                   disabled={waterLogging}
+                   onClick={() => logWater(ml)}
+                   className="py-2.5 rounded-xl text-xs font-semibold border text-center transition-all hover:bg-sky-500/10 active:scale-95 text-sky-600 border-sky-500/20"
+                >
+                   + {ml >= 1000 ? `${ml/1000}L` : `${ml}ml`}
+                </button>
+             ))}
           </div>
         </motion.div>
 
@@ -374,7 +434,7 @@ export default function FoodTrackerPage() {
                             {log.meal_description || log.meal_type}
                           </p>
                           <p className="text-xs text-text-muted">
-                            {log.meal_type} · {log.total_calories} kcal
+                            {log.meal_type} {log.created_at ? ` · ${new Date(log.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}` : ''} · {log.total_calories} kcal
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -382,7 +442,13 @@ export default function FoodTrackerPage() {
                             style={{ color: '#ea580c' }}>
                             {log.total_calories}
                           </span>
-                          {isExpanded ? <ChevronUp size={14} className="text-text-muted" /> : <ChevronDown size={14} className="text-text-muted" />}
+                          <button 
+                            onClick={(e) => handleDeleteMeal(key, e)}
+                            className="p-1 rounded opacity-50 hover:opacity-100 hover:bg-red-500/10 hover:text-red-500 transition-all text-text-muted ml-1"
+                          >
+                             <Trash2 size={14} />
+                          </button>
+                          {isExpanded ? <ChevronUp size={14} className="text-text-muted ml-1" /> : <ChevronDown size={14} className="text-text-muted ml-1" />}
                         </div>
                       </div>
                       <AnimatePresence>

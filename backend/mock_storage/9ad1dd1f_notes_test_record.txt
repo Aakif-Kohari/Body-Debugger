@@ -1,0 +1,3 @@
+Patient: Test
+BP: 120/80
+Glucose: 95mg/dL

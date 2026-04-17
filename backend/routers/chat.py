@@ -50,6 +50,7 @@ async def analyze_symptom(
         
         # Fetch user's recent health logs from MongoDB
         try:
+            raw_user  = await mongodb_service.get_user(user_id)
             raw_food  = await mongodb_service.get_food_history(user_id, num_days=1)
             raw_sleep = await mongodb_service.get_sleep_logs(user_id, num_days=1)
             raw_reports = await mongodb_service.get_lab_reports(user_id)
@@ -57,6 +58,11 @@ async def analyze_symptom(
             recent_food    = serialize_docs(raw_food or [])
             recent_sleep   = serialize_docs(raw_sleep or [])
             recent_reports = serialize_docs(raw_reports or [])
+            
+            user_profile = {
+                "age": raw_user.get("age") if raw_user else None,
+                "goals": raw_user.get("health_goals", []) if raw_user else []
+            }
             
             # Extract context data — food items must be strings for Gemini
             food_items = []
@@ -71,6 +77,7 @@ async def analyze_symptom(
             report_values = recent_reports[0].get("analysis") if recent_reports else None
             
             context_data = {
+                "user_profile": user_profile,
                 "sleep_hours": sleep_hours,
                 "water_intake_ml": None,
                 "recent_food": food_items,
@@ -79,6 +86,7 @@ async def analyze_symptom(
         except Exception as e:
             print(f"[A6] Warning: Could not fetch context from MongoDB: {str(e)}")
             context_data = {
+                "user_profile": None,
                 "sleep_hours": None,
                 "water_intake_ml": None,
                 "recent_food": None,
@@ -89,6 +97,7 @@ async def analyze_symptom(
             # Call Gemini with symptom analysis
             result = gemini_service.analyze_symptom_with_context(
                 symptom=symptom,
+                user_profile=context_data.get("user_profile"),
                 recent_sleep_hours=context_data.get("sleep_hours"),
                 recent_water_intake=context_data.get("water_intake_ml"),
                 recent_food_items=context_data.get("recent_food"),

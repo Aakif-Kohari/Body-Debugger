@@ -177,7 +177,7 @@ async def run():
             log(False, "Symptom Analysis", str(e)[:80])
 
         try:
-            r = await c.post(f"{BASE}/api/chat/quick-check", json={"message": "Am I drinking enough water?"}, headers=H)
+            r = await c.post(f"{BASE}/api/chat/quick-check", json={"symptom": "Am I drinking enough water?"}, headers=H)
             r.raise_for_status()
             log(True, "Quick Health Check", f"response_len={len(r.json().get('response',''))}")
         except Exception as e:
