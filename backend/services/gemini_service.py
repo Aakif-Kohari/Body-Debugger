@@ -27,7 +27,7 @@ class GeminiService:
         primary_key = api_keys[0]
         
         genai.configure(api_key=primary_key)
-        self.model = genai.GenerativeModel('gemini-flash-latest')
+        self.model = genai.GenerativeModel('gemini-1.5-flash-latest')
         
         # Setup Groq keys for round-robin rotation to avoid rate limits
         groq_keys_raw = os.getenv("GROQ_API_KEYS", "")
@@ -326,5 +326,11 @@ Respond with a JSON object in exactly this format:
 """
         return self.ask_gemini(prompt, json_expected=True)
 
-# Create singleton instance
-gemini_service = GeminiService()
+# Create singleton instance (lazy to avoid crashing the app on import)
+gemini_service = None
+try:
+    gemini_service = GeminiService()
+    print("[OK] GeminiService initialized")
+except Exception as e:
+    print(f"[WARN] GeminiService initialization failed: {e}")
+    print("[WARN] AI features will be unavailable until GEMINI_API_KEY is set")
