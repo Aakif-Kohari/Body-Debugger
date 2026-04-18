@@ -41,6 +41,12 @@ app = FastAPI(
 scheduler = BackgroundScheduler()
 scheduler.start()
 
+# ========== HEALTH CHECK ENDPOINT ==========
+@app.get("/health", tags=["health"])
+async def health_check():
+    """Simple health check for uptime monitoring"""
+    return {"status": "ok", "service": "Body Debugger API", "version": "0.2.0"}
+
 # ========== HEALTH SCORE ENDPOINT ==========
 from services.health_score_service import health_score_service
 from routers.auth import get_current_user_id
