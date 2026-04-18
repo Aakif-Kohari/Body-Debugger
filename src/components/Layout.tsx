@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, FlaskConical, UtensilsCrossed, Moon, FolderHeart, LogOut, Zap, Trophy
+  LayoutDashboard, FlaskConical, UtensilsCrossed, Moon, FolderHeart, LogOut, Zap, Trophy, User
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -13,6 +13,7 @@ const navItems = [
   { icon: UtensilsCrossed, label: "Food", path: "/food" },
   { icon: Moon, label: "Sleep", path: "/sleep" },
   { icon: Trophy, label: "XP", path: "/xp" },
+  { icon: User, label: "Twin", path: "/digital-twin" },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {

@@ -13,6 +13,7 @@ import SleepTrackerPage from './pages/SleepTrackerPage';
 import RecordsPage from './pages/RecordsPage';
 import ChatBot from './components/ChatBot';
 import GamificationPage from './pages/GamificationPage';
+import DigitalTwinPage from './pages/DigitalTwinPage';
 
 // Protected Route Component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -73,6 +74,7 @@ function AppRoutes() {
         <Route path="/sleep" element={<ProtectedRoute><SleepTrackerPage /></ProtectedRoute>} />
         <Route path="/records" element={<ProtectedRoute><RecordsPage /></ProtectedRoute>} />
         <Route path="/xp" element={<ProtectedRoute><GamificationPage /></ProtectedRoute>} />
+        <Route path="/digital-twin" element={<ProtectedRoute><DigitalTwinPage /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AnimatePresence>

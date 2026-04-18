@@ -99,6 +99,7 @@ async def upload_lab_report(
                 report_data={
                     "report_id": report_id,
                     "file_url": file_url,
+                    "raw_text": raw_text,
                     "analysis": analysis_data
                 }
             )
@@ -171,6 +172,32 @@ async def get_report(report_id: str, user_id: str = Depends(get_current_user_id)
     except Exception as e:
         print(f"[A4] Error fetching report: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch report: {str(e)}")
+
+@router.delete("/{report_id}")
+async def delete_lab_report(report_id: str, user_id: str = Depends(get_current_user_id)):
+    """
+    Delete a lab report analysis and its associated file permanently
+    """
+    try:
+        # Delete from MongoDB and get the file URL
+        success, file_url = await mongodb_service.delete_lab_report(user_id, report_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Report not found")
+        
+        # Clean up the file from Firebase storage if it exists
+        if file_url:
+            try:
+                storage_service.delete_file(file_url)
+            except Exception as e:
+                print(f"Warning: Failed to delete file from storage: {e}")
+            
+        return {"status": "success", "message": "Lab report and associated file deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[A4] Deletion error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ========== A8: HEALTH RECORDS VAULT ==========
 

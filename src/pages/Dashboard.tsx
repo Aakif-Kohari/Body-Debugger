@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import Layout from '../components/Layout';
 import {
   Droplets, Flame, Moon, TrendingUp, Plus, Loader2, Star, Trophy,
-  Activity, Heart, Zap, Target, ChevronRight, RefreshCw, Check, Info
+  Activity, Heart, Zap, Target, ChevronRight, RefreshCw, Check, Info, Clock, Sparkles
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { apiService } from '../services/api';
@@ -118,6 +118,10 @@ export default function Dashboard() {
   const [showWaterPicker, setShowWaterPicker] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // USP Features
+  const [forecast, setForecast] = useState<any>(null);
+  const [forecastLoading, setForecastLoading] = useState(false);
+
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
@@ -173,6 +177,18 @@ export default function Dashboard() {
       setError('Failed to log water');
     } finally {
       setWaterLogging(false);
+    }
+  };
+
+  const handleTimeMachine = async () => {
+    setForecastLoading(true);
+    try {
+      const data = await apiService.getTimeMachineForecast();
+      setForecast(data);
+    } catch (e) {
+      setError('Time Machine override failed. Check connection.');
+    } finally {
+      setForecastLoading(false);
     }
   };
 
@@ -289,6 +305,83 @@ export default function Dashboard() {
               </div>
            </div>
         </motion.div>
+
+         {/* --- TIME MACHINE USP FEATURE --- */}
+         <motion.div
+           initial={{ opacity: 0, y: 15 }}
+           animate={{ opacity: 1, y: 0 }}
+           className="relative overflow-hidden rounded-2xl border border-purple-500/30 bg-black/40 backdrop-blur-xl p-5"
+         >
+           <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl -mr-10 -mt-10" />
+           <div className="relative z-10">
+             <div className="flex items-center justify-between mb-3">
+               <div className="flex items-center gap-2">
+                 <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center border border-purple-500/30">
+                   <Clock size={16} className="text-purple-400" />
+                 </div>
+                 <h3 className="text-white font-bold tracking-wide flex items-center gap-2">
+                   Health Time-Machine <Sparkles size={14} className="text-yellow-400" />
+                 </h3>
+               </div>
+               
+               {!forecast && (
+                 <button 
+                   onClick={handleTimeMachine}
+                   disabled={forecastLoading || loading}
+                   className="px-4 py-1.5 rounded-full bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition-all shadow-[0_0_15px_rgba(168,85,247,0.4)] disabled:opacity-50 disabled:shadow-none"
+                 >
+                   {forecastLoading ? 'Forecasting...' : 'Predict 6 Months →'}
+                 </button>
+               )}
+             </div>
+
+             {forecast && (
+               <motion.div 
+                 initial={{ opacity: 0, height: 0 }}
+                 animate={{ opacity: 1, height: 'auto' }}
+                 className="mt-4 pt-4 border-t border-white/10"
+               >
+                 <div className="flex gap-2 mb-3">
+                   <span className={cn(
+                     "text-[10px] uppercase font-black tracking-widest px-2 py-0.5 rounded-sm",
+                     forecast.trajectory_status === 'CRITICAL' ? 'bg-red-500/20 text-red-400' :
+                     forecast.trajectory_status === 'OPTIMAL'  ? 'bg-emerald-500/20 text-emerald-400' :
+                     'bg-yellow-500/20 text-yellow-400'
+                   )}>
+                     Trajectory: {forecast.trajectory_status}
+                   </span>
+                   <span className="text-[10px] uppercase font-black tracking-widest px-2 py-0.5 rounded-sm bg-blue-500/20 text-blue-400">
+                     Energy: {forecast.energy_level_projection}
+                   </span>
+                 </div>
+                 <p className="text-sm text-white/90 leading-relaxed italic border-l-2 border-purple-500 pl-3">
+                   "{forecast.six_month_prediction}"
+                 </p>
+                 <div className="mt-3 bg-black/30 rounded-lg p-2.5 border border-white/5 flex gap-2 items-start">
+                   <span className="text-purple-400 font-bold text-xs mt-0.5">CONCLUSION:</span>
+                   <p className="text-xs font-medium text-text-muted">
+                     {forecast.primary_consequence}
+                   </p>
+                 </div>
+                 
+                 <button 
+                   onClick={handleTimeMachine}
+                   disabled={forecastLoading}
+                   className="mt-4 text-xs font-semibold text-purple-400 hover:text-purple-300 w-full text-center flex items-center justify-center gap-1"
+                 >
+                   {forecastLoading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                   Refresh Simulation
+                 </button>
+               </motion.div>
+             )}
+             
+             {!forecast && !forecastLoading && (
+               <p className="text-xs text-text-muted mt-1">
+                 Our proprietary Predictive AI analyzes your recent logs to vividly simulate exactly how you will look and feel 6 months from today if you don't change your habits.
+               </p>
+             )}
+           </div>
+         </motion.div>
 
         {error && (
           <motion.div

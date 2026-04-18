@@ -154,6 +154,12 @@ class ApiService {
     return this.request(`/api/reports/${id}`);
   }
 
+  async deleteLabReport(id: string) {
+    return this.request(`/api/reports/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   // ========== RECORDS METHODS ==========
   async uploadHealthRecord(file: File, recordData: {
     record_type: string;
@@ -222,6 +228,14 @@ class ApiService {
   }
 
   // ========== GAMIFICATION METHODS ==========
+  async getDigitalTwin() {
+    return this.request('/api/gamification/digital-twin');
+  }
+
+  async getTimeMachineForecast() {
+    return this.request('/api/gamification/time-machine');
+  }
+
   async getPoints() {
     return this.request('/api/gamification/points');
   }

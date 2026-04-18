@@ -144,6 +144,8 @@ Analyze this blood report and provide a structured JSON response with the follow
             "risk_flag": "green" (normal), "yellow" (slightly abnormal), or "red" (concerning)
         }}
     ],
+    "key_findings": ["A list of the 3-5 most important medical take-aways", "e.g., 'LDL Cholesterol is high'", "e.g., 'Hemoglobin is slightly below range'"],
+    "abnormal_values": ["A list of specific abnormal markers with their values", "e.g., 'Glucose: 110 mg/dL (High)'"],
     "summary_for_doctor": "A brief 2-3 line summary of key findings to discuss with doctor",
     "overall_health_assessment": "Overall assessment in 2-3 sentences",
     "recommendations": ["recommendation 1", "recommendation 2", "recommendation 3"]
@@ -173,7 +175,7 @@ Respond with ONLY this JSON format (no markdown, no explanation):
 {{
     "items": [
         {{
-            "item_name": "Item name",
+            "name": "Item name",
             "quantity": "Estimated quantity (e.g., '2 pieces', '1 plate')",
             "calories": 250,
             "protein_grams": 10,
@@ -216,7 +218,8 @@ Meal Description: {meal_description}"""
                                      recent_sleep_hours: float = None,
                                      recent_water_intake: float = None,
                                      recent_food_items: List[str] = None,
-                                     recent_report_values: Dict[str, str] = None) -> Dict[str, Any]:
+                                     recent_report_values: Dict[str, str] = None,
+                                     digital_twin_summary: str = None) -> Dict[str, Any]:
         """
         Analyze user's symptom/mood with context from their health logs
         
@@ -249,6 +252,8 @@ Meal Description: {meal_description}"""
         if recent_report_values:
             report_str = ", ".join([f"{k}: {v}" for k, v in recent_report_values.items()])
             context_str += f"- Recent lab values: {report_str}\n"
+        if digital_twin_summary:
+            context_str += f"- Body scan status: {digital_twin_summary}\n"
         
         prompt = f"""You are a friendly health AI assistant. The user has reported: "{symptom}"
 
@@ -270,6 +275,56 @@ Respond as natural conversational text, starting directly (no JSON)."""
             "context": context_str
         }
 
+
+    # ========== TIME MACHINE PROMPT ==========
+    
+    def generate_time_machine_forecast(self, health_data: dict) -> dict:
+        """
+        Generate a 6-month prediction of the user's biological trajectory
+        """
+        score = health_data.get('health_score', 'Unknown')
+        sleep = health_data.get('average_sleep', 'Unknown')
+        calories = health_data.get('average_calories', 'Unknown')
+        lab_reports = health_data.get('lab_reports', [])
+        total_reports = health_data.get('total_reports', 0)
+
+        # Format lab data for the prompt
+        lab_context = ""
+        if lab_reports:
+            lab_context = f"\n\nClinical Lab History ({total_reports} reports uploaded):\n"
+            for i, report in enumerate(lab_reports, 1):
+                lab_context += f"\nReport {i} (Date: {report['date']}):"
+                if report.get('key_findings'):
+                    lab_context += f"\n  Key Findings: {', '.join(str(f) for f in report['key_findings'])}"
+                if report.get('abnormal_values'):
+                    lab_context += f"\n  ABNORMAL VALUES: {', '.join(str(a) for a in report['abnormal_values'])}"
+        else:
+            lab_context = "\n\nClinical Lab History: No lab reports uploaded yet."
+
+        prompt = f"""You are the 'Health Time Machine', an advanced predictive AI with access to the user's full medical history.
+Based on this user's current 7-day health habits AND their clinical lab history, predict what their physiological and mental state will be exactly 6 months from today if they DO NOT change their habits.
+
+Current Biometric Profile:
+- Overall Health Score: {score}/100
+- 7-Day Average Sleep: {sleep} hours/night
+- 7-Day Average Daily Calories: {calories} kcal
+{lab_context}
+
+Instructions:
+- If lab reports exist, you MUST directly reference specific abnormal biomarkers (e.g. HbA1c, Cholesterol, Vitamin D, Hemoglobin) in your prediction.
+- Cross-correlate the lab data with the sleep and caloric habits to identify compound risk factors.
+- Be clinically specific and brutally honest. This is not generic wellness advice.
+- Make the 6-month narrative feel like a scene from a sci-fi medical thriller.
+
+Respond with a JSON object in exactly this format:
+{{
+    "six_month_prediction": "A vivid 3-4 sentence narrative using specific lab values and habits. Make it sound like a sci-fi medical diagnostic report.",
+    "energy_level_projection": "Increase", "Decrease", or "Crash",
+    "primary_consequence": "One specific, brutal (or amazing) physical consequence referencing actual biomarker trends (e.g. 'Uncontrolled HbA1c trajectory pointing to Type-2 Diabetes onset by October')",
+    "trajectory_status": "CRITICAL", "STABLE", or "OPTIMAL"
+}}
+"""
+        return self.ask_gemini(prompt, json_expected=True)
 
 # Create singleton instance
 gemini_service = GeminiService()

@@ -54,6 +54,7 @@ async def analyze_symptom(
             raw_food  = await mongodb_service.get_food_history(user_id, num_days=1)
             raw_sleep = await mongodb_service.get_sleep_logs(user_id, num_days=1)
             raw_reports = await mongodb_service.get_lab_reports(user_id)
+            raw_twin = await mongodb_service.db.digital_twin_snapshots.find_one({"user_id": user_id})
             
             recent_food    = serialize_docs(raw_food or [])
             recent_sleep   = serialize_docs(raw_sleep or [])
@@ -75,13 +76,26 @@ async def analyze_symptom(
             
             sleep_hours = recent_sleep[0].get("duration_hours") if recent_sleep else None
             report_values = recent_reports[0].get("analysis") if recent_reports else None
+
+            # Build a plain-English twin summary for the AI to reference
+            twin_summary = None
+            if raw_twin and raw_twin.get("organs"):
+                organs = raw_twin["organs"]
+                issues = [f"{name}: {data['status']} — {data['reason']}" 
+                          for name, data in organs.items() 
+                          if data["status"] in ("WARNING", "CRITICAL", "UNKNOWN")]
+                if issues:
+                    twin_summary = "Digital Twin Issues Detected:\n" + "\n".join(f"- {i}" for i in issues)
+                else:
+                    twin_summary = "Digital Twin: All organs showing OPTIMAL status."
             
             context_data = {
                 "user_profile": user_profile,
                 "sleep_hours": sleep_hours,
                 "water_intake_ml": None,
                 "recent_food": food_items,
-                "last_blood_report_values": report_values
+                "last_blood_report_values": report_values,
+                "digital_twin_summary": twin_summary
             }
         except Exception as e:
             print(f"[A6] Warning: Could not fetch context from MongoDB: {str(e)}")
@@ -90,7 +104,8 @@ async def analyze_symptom(
                 "sleep_hours": None,
                 "water_intake_ml": None,
                 "recent_food": None,
-                "last_blood_report_values": None
+                "last_blood_report_values": None,
+                "digital_twin_summary": None
             }
         
         try:
@@ -101,7 +116,8 @@ async def analyze_symptom(
                 recent_sleep_hours=context_data.get("sleep_hours"),
                 recent_water_intake=context_data.get("water_intake_ml"),
                 recent_food_items=context_data.get("recent_food"),
-                recent_report_values=context_data.get("last_blood_report_values")
+                recent_report_values=context_data.get("last_blood_report_values"),
+                digital_twin_summary=context_data.get("digital_twin_summary")
             )
         except Exception as e:
             print(f"[A6] Gemini error: {str(e)}")

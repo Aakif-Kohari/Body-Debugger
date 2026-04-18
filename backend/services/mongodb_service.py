@@ -304,6 +304,7 @@ class MongoDBService:
                 "user_id": uid,
                 "report_id": report_data.get("report_id"),
                 "file_url": report_data.get("file_url"),
+                "raw_text": report_data.get("raw_text"),
                 "analysis": report_data.get("analysis"),
                 "uploaded_at": datetime.now().isoformat()
             }
@@ -361,13 +362,20 @@ class MongoDBService:
 
 
     async def delete_lab_report(self, uid: str, report_id: str):
-        """Delete a lab report analysis"""
+        """Delete a lab report analysis and return file_url for storage cleanup"""
         try:
+            # Find the report first to get the file_url
+            report = await self.db.lab_reports.find_one({
+                "user_id": uid,
+                "report_id": report_id
+            })
+            
             result = await self.db.lab_reports.delete_one({
                 "user_id": uid,
                 "report_id": report_id
             })
-            return result.deleted_count > 0
+            
+            return result.deleted_count > 0, report.get("file_url") if report else None
         except Exception as e:
             print(f"Error deleting report: {e}")
             raise
