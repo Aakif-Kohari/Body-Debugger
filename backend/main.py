@@ -57,6 +57,7 @@ allowed_origins = [
     "http://127.0.0.1:3000",
     "http://127.0.0.1:5173",
     "https://body-debugger.vercel.app",  # Production frontend
+    "https://body-debugger.onrender.com",
     "*", # Allow local network access from mobile devices
 ]
 

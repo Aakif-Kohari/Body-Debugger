@@ -16,13 +16,19 @@ def init_firebase():
         return None
     
     if not firebase_admin._apps:
-        cred = credentials.Certificate(service_account_path)
-        app = firebase_admin.initialize_app(
-            cred,
-            {
-                'storageBucket': os.getenv("FIREBASE_STORAGE_BUCKET")
-            }
-        )
+        json_str = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
+        if json_str:
+            cred_dict = json.loads(json_str)
+            cred = credentials.Certificate(cred_dict)
+        else:
+            path = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH", "./firebase_service_account.json")
+            cred = credentials.Certificate(path)
+            app = firebase_admin.initialize_app(
+                cred,
+                {
+                    'storageBucket': os.getenv("FIREBASE_STORAGE_BUCKET")
+                }
+            )
         return app
     else:
         return firebase_admin.get_app()
