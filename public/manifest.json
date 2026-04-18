@@ -1,0 +1,17 @@
+{
+  "name": "Body Debugger",
+  "short_name": "BodyDebug",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020a18",
+  "theme_color": "#020a18",
+  "description": "Biological Digital Twin and Lab Translator for personal health optimization.",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
