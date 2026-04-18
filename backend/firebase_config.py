@@ -1,4 +1,5 @@
 import os
+import json
 import firebase_admin
 from firebase_admin import credentials, firestore, storage, auth
 from dotenv import load_dotenv
@@ -8,27 +9,27 @@ load_dotenv()
 # Initialize Firebase Admin SDK
 def init_firebase():
     """Initialize Firebase Admin SDK"""
-    service_account_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH", "./firebase_service_account.json")
-    
-    if not os.path.exists(service_account_path):
-        print(f"[WARN] Firebase service account file not found at {service_account_path}")
-        print("[WARN] Firebase features will be disabled.")
-        return None
-    
     if not firebase_admin._apps:
+        # Try JSON string from env first (for Render/cloud hosting)
         json_str = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
         if json_str:
             cred_dict = json.loads(json_str)
             cred = credentials.Certificate(cred_dict)
         else:
+            # Fall back to file path for local dev
             path = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH", "./firebase_service_account.json")
+            if not os.path.exists(path):
+                print(f"[WARN] Firebase service account file not found at {path}")
+                print("[WARN] Firebase features will be disabled.")
+                return None
             cred = credentials.Certificate(path)
-            app = firebase_admin.initialize_app(
-                cred,
-                {
-                    'storageBucket': os.getenv("FIREBASE_STORAGE_BUCKET")
-                }
-            )
+        
+        app = firebase_admin.initialize_app(
+            cred,
+            {
+                'storageBucket': os.getenv("FIREBASE_STORAGE_BUCKET")
+            }
+        )
         return app
     else:
         return firebase_admin.get_app()
